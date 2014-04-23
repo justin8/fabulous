@@ -8,8 +8,9 @@ import string
 from fabric.api import env, put, sudo, task
 
 valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox']
-base_packages = ['base', 'cifs-utils', 'git', 'pkgfile', 'puppet', 'openssh',
-                 'rsync', 'syslinux', 'vim-python2', 'zsh']
+base_packages = ['base', 'btrfs-progs', 'cifs-utils', 'git', 'pkgfile',
+                 'puppet', 'openssh', 'rsync', 'syslinux', 'vim-python2',
+                 'zsh']
 base_services = ['puppet', 'sshd']
 gui_packages = ['archlinux-lxdm-theme-top', 'i3', 'lxdm',
                 'mediterraneannight-theme', 'pulseaudio', 'pulseaudio-alsa',
@@ -86,11 +87,10 @@ def boot_loader(root_label=None):
              ' "%s/boot/syslinux/syslinux.cfg"' % (root_label, env.dest))
         sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
              % env.dest)
-    sudo('ln -s /usr/bin/true %s/usr/bin/fsck.btrfs' % env.dest)
     sudo('arch-chroot "%s" /usr/bin/mkinitcpio -p linux' % env.dest)
 
 
-def chroot_puppet(fqdn):
+def chroot_puppet():
     script = """#!/bin/bash
 hostname $(cat %s/etc/hostname)
 puppet agent -t --tags os_default::misc,os_default::pacman --no-noop
@@ -238,7 +238,7 @@ def install_os(fqdn, gpu=False, gui=False, device=None, mountpoint=None,
         network_config(fqdn)
 
         print("*** Configuring base system via puppet...")
-        chroot_puppet(fqdn)
+        chroot_puppet()
 
         print("*** Configuring base system services...")
         for service in base_services:
