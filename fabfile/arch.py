@@ -163,7 +163,6 @@ def install_os(fqdn, gpu=False, gui=False, device=None, mountpoint=None,
                ssh_key=None, quiet=False, extra_packages=None):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
-    It will also install all GUI packages automatically.
     If env.password is specified it will be set as the root password on the
     machine. Otherwise a random password will be set for security purposes.
     """
