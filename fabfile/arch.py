@@ -87,7 +87,7 @@ EOF""" % root_label
             pacstrap(['syslinux'])
             sudo('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
                  ' "%s/boot/syslinux/syslinux.cfg"' % (root_label, env.dest))
-            sudo('sed -i "/TIMEOUT/s/^.*$/TIMEOUT=10/"'
+            sudo('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/"'
                  ' "%s/boot/syslinux/syslinux.cfg"' % env.dest)
             sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
                  % env.dest)
