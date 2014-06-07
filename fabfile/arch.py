@@ -8,14 +8,14 @@ import string
 from fabric.api import env, put, sudo, task
 
 valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox']
-base_packages = ['base', 'btrfs-progs', 'cifs-utils', 'git', 'pkgfile',
-                 'puppet', 'openssh', 'rsync', 'syslinux', 'vim-python2',
-                 'zsh']
-base_services = ['puppet', 'sshd']
-gui_packages = ['archlinux-lxdm-theme-top', 'i3', 'lxdm',
-                'mediterraneannight-theme', 'pulseaudio', 'pulseaudio-alsa',
-                'terminator', 'ttf-dejavu']
-gui_services = ['lxdm']
+base_packages = [
+    'base', 'btrfs-progs', 'cifs-utils', 'git', 'networkmanager', 'pkgfile',
+    'puppet', 'openssh', 'rsync', 'vim-python2', 'zsh']
+base_services = ['NetworkManager', 'puppet', 'sshd']
+gui_packages = [
+    'adwaita-x-dark-and-light-theme', 'aspell-en', 'gdm', 'gnome',
+    'pulseaudio', 'pulseaudio-alsa', 'terminator', 'ttf-dejavu']
+gui_services = ['gdm']
 
 
 def generate_password(length):
@@ -68,30 +68,53 @@ def network_config(fqdn):
     sudo('echo "%s" > "%s/etc/hostname"' % (shortname, env.dest))
     sudo('echo "127.0.1.1\t%s\t%s" >> %s/etc/hosts'
          % (fqdn, shortname, env.dest))
-
-    ip_link = sudo('/usr/bin/ip link', quiet=True)
-    interface = re.search('^2: ([a-z0-9]+)', ip_link, re.MULTILINE).groups()[0]
-    interface_config = """Description='A basic dhcp ethernet connection'
-Interface=%s
-Connection=ethernet
-IP=dhcp
-EOF""" % interface
-    sudo('cat <<-EOF > %s/etc/netctl/%s \n %s'
-         % (env.dest, interface, interface_config), quiet=True)
-    sudo('arch-chroot %s /usr/bin/netctl enable %s' % (env.dest, interface))
+    enable_services(['NetworkManager'])
 
 
-def boot_loader(root_label=None):
+def boot_loader(root_label=None, efi=True):
     if root_label:
-        sudo('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
-             ' "%s/boot/syslinux/syslinux.cfg"' % (root_label, env.dest))
-        sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
-             % env.dest)
+        if efi:
+            boot_loader_entry = """title    Arch Linux
+linux    /vmlinuz-linux
+initrd   /initramfs-linux.img
+options  root=LABEL=%s rw
+EOF""" % root_label
+            pacstrap(['gummiboot'])
+            sudo('arch-chroot %s gummiboot install' % env.dest)
+            sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest
+                 + boot_loader_entry)
+        else:
+            pacstrap(['syslinux'])
+            sudo('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
+                 ' "%s/boot/syslinux/syslinux.cfg"' % (root_label, env.dest))
+            sudo('sed -i "/TIMEOUT/s/^.*$/TIMEOUT=10/"'
+                 ' "%s/boot/syslinux/syslinux.conf"' % env.dest)
+            sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
+                 % env.dest)
     sudo('arch-chroot "%s" /usr/bin/mkinitcpio -p linux' % env.dest)
+
+
+def booleanize(value):
+    """Return value as a boolean."""
+
+    true_values = ("yes", "y", "Y", "true", "True", "1")
+    false_values = ("no", "n", "N", "false", "False", "0")
+
+    if isinstance(value, bool):
+        return value
+
+    if value.lower() in true_values:
+        return True
+    elif value.lower() in false_values:
+        return False
+    else:
+        raise TypeError("Cannot booleanize ambiguous value '%s'" % value)
 
 
 def chroot_puppet():
     script = """#!/bin/bash
+export LANG=en_AU.UTF-8
+export LC_CTYPE=en_AU.UTF-8
 hostname $(cat %s/etc/hostname)
 puppet agent -t --tags os_default::misc,os_default::pacman --no-noop
 puppet agent -t --no-noop
@@ -108,18 +131,18 @@ EOF""" % env.dest
                            ' rc=%s' % puppet.return_code)
 
 
+def enable_services(services):
+    for service in services:
+        sudo("arch-chroot %s systemctl enable %s"
+             % (env.dest, service), quiet=env.quiet)
+
+
 def gui_install():
     print('*** Installing GUI packages...')
     pacstrap(gui_packages)
 
     print('*** Configuring GUI services...')
-    for service in gui_services:
-        sudo("arch-chroot %s systemctl enable %s"
-             % (env.dest, service), quiet=env.quiet)
-
-    sudo("sed -i 's/^gtk_theme=.*$/gtk_theme=MediterraneanLightDarkest/"
-         ";s/^theme=.*$/theme=ArchLinux-Top/' %s/etc/lxdm/lxdm.conf"
-         % env.dest)
+    enable_services(gui_services)
 
 
 def get_shortname(fqdn):
@@ -144,28 +167,48 @@ def install_ssh_key(keyfile):
         mode=0600)
 
 
-def dotfiles_install(gui):
+def dotfiles_install():
     script = """#!/bin/bash
         mount /var/cache/pacman/pkg
         git clone https://github.com/justin8/dotfiles /var/tmp/dotfiles
-        /var/tmp/dotfiles/install"""
-    if gui:
-        script = script + " -g"
-    script = script + """
+        /var/tmp/dotfiles/install
         umount -l /var/cache/pacman/pkg"""
     sudo('echo "%s" > %s/var/tmp/dotfiles-install' % (script, env.dest))
     sudo('chmod +x %s/var/tmp/dotfiles-install' % env.dest)
     sudo('arch-chroot "%s" /var/tmp/dotfiles-install' % env.dest)
 
 
+def prepare_device_efi(device, shortname, boot, root):
+    sudo('echo -e "o\ny\nn\n\n\n+200M\nef00\nn\n\n\n\n\nw\ny\n" | gdisk "%s"'
+         % device, quiet=True)
+    sudo('wipefs -a %s' % boot)
+    sudo('wipefs -a %s' % root)
+    sudo('mkfs.vfat -F32 %s -n "boot"' % boot)
+
+
+def prepare_device_bios(device, shortname, boot, root):
+    sudo('echo -e "o\nn\n\n\n\n+200M\nn\n\n\n\n\nw\n" | fdisk "%s"'
+         % device, quiet=True)
+    sudo('wipefs -a %s' % boot)
+    sudo('wipefs -a %s' % root)
+    sudo('mkfs.ext4 -m 0 -L "boot" "%s"' % boot)
+
+
 @task
-def install_os(fqdn, gpu=False, gui=False, device=None, mountpoint=None,
-               ssh_key=None, quiet=False, extra_packages=None):
+def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
+               gui=False, ssh_key=None, quiet=False, extra_packages=None):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
     If env.password is specified it will be set as the root password on the
     machine. Otherwise a random password will be set for security purposes.
+
+    gpu: Should be one of: nvidia, nouveau, ati, intel, vbox
+    gui: Will configure a basic gnome environment
     """
+
+    efi = booleanize(efi)
+    gui = booleanize(gui)
+    quiet = booleanize(quiet)
 
     env.quiet = quiet
 
@@ -192,13 +235,13 @@ def install_os(fqdn, gpu=False, gui=False, device=None, mountpoint=None,
 
         # Create partitions; 200M sdX1 and the rest as sdX2
         print("*** Preparing device...")
-        sudo('echo -e "o\nn\n\n\n\n+200M\nn\n\n\n\n\nw\n" | fdisk "%s"'
-             % device, quiet=True)
         boot = '%s1' % device
         root = '%s2' % device
-        sudo('wipefs -a %s' % boot)
-        sudo('wipefs -a %s' % root)
-        sudo('mkfs.ext4 -m 0 -L "%s-boot" "%s"' % (shortname, boot))
+        if efi:
+            prepare_device_efi(device, shortname, boot=boot, root=root)
+        else:
+            prepare_device_bios(device, shortname, boot=boot, root=root)
+
         sudo('mkfs.btrfs -L "%s-btrfs" "%s"' % (shortname, root))
 
         # Set up root as the default btrfs subvolume
@@ -215,7 +258,7 @@ def install_os(fqdn, gpu=False, gui=False, device=None, mountpoint=None,
             # Mount all of the things
             sudo('mount -o relatime "%s" "%s"' % (root, env.dest))
             sudo('mkdir "%s/boot"' % env.dest)
-            sudo('mount -o relatime "%s" "%s/boot"' % (boot, env.dest))
+            sudo('mount "%s" "%s/boot"' % (boot, env.dest))
         except:
             cleanup(device)
     elif mountpoint:
@@ -240,9 +283,7 @@ def install_os(fqdn, gpu=False, gui=False, device=None, mountpoint=None,
         chroot_puppet()
 
         print("*** Configuring base system services...")
-        for service in base_services:
-            sudo("arch-chroot '%s' /usr/bin/systemctl enable %s"
-                 % (env.dest, service), quiet=env.quiet)
+        enable_services(base_services)
 
         print('*** Generating fstab...')
         fstab(fqdn)
@@ -256,11 +297,11 @@ def install_os(fqdn, gpu=False, gui=False, device=None, mountpoint=None,
             gpu_install(gpu)
 
         if gui:
+            print('*** Installing GUI packages...')
             gui_install()
 
-        # TODO: Move this to a function and mount the package cache first.
         print("*** Installing root dotfiles configuration...")
-        dotfiles_install(gui)
+        dotfiles_install()
 
         if extra_packages:
             print("*** Installing additional packages...")
@@ -268,11 +309,9 @@ def install_os(fqdn, gpu=False, gui=False, device=None, mountpoint=None,
 
         print('*** Installing boot loader...')
         if device:
-            boot_loader('%s-btrfs' % shortname)
+            boot_loader('%s-btrfs' % shortname, efi=efi)
         else:
-            boot_loader()
-#    except Exception as e:
-#        raise e
+            boot_loader(efi=efi)
     finally:
         if device:
             cleanup(device)
