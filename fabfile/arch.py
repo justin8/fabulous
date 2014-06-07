@@ -187,7 +187,10 @@ def prepare_device_efi(device, shortname, boot, root):
 
 
 def prepare_device_bios(device, shortname, boot, root):
-    sudo('echo -e "o\nn\n\n\n\n+200M\nn\n\n\n\n\nw\n" | fdisk "%s"'
+    # Use parted to create a blank partition table, it correctly clears GPT
+    # tables as well, unlike fdisk
+    sudo('parted %s mklabel msdos' % device)
+    sudo('echo -e "n\n\n\n\n+200M\nn\n\n\n\n\nw\n" | fdisk "%s"'
          % device, quiet=True)
     sudo('wipefs -a %s' % boot)
     sudo('wipefs -a %s' % root)
