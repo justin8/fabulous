@@ -116,8 +116,9 @@ def chroot_puppet():
 export LANG=en_AU.UTF-8
 export LC_CTYPE=en_AU.UTF-8
 hostname $(cat %s/etc/hostname)
-puppet agent -t --tags os_default::misc,os_default::pacman --no-noop
-puppet agent -t --no-noop
+git clone https://github.com/justin8/puppet /tmp/puppet
+puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default::misc,os_default::pacman --no-noop /tmp/puppet/manifests/site.pp
+puppet apply --modulepath=/tmp/puppet/modules --test --no-noop /tmp/puppet/manifests/site.pp
 EOF""" % env.dest
     sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % env.dest + script, quiet=True)
     sudo('chmod +x %s/var/tmp/puppet.sh' % env.dest, quiet=True)
@@ -187,7 +188,10 @@ def prepare_device_efi(device, shortname, boot, root):
 
 
 def prepare_device_bios(device, shortname, boot, root):
-    sudo('echo -e "o\nn\n\n\n\n+200M\nn\n\n\n\n\nw\n" | fdisk "%s"'
+    # Use parted to create a blank partition table, it correctly clears GPT
+    # tables as well, unlike fdisk
+    sudo('parted %s mklabel msdos' % device)
+    sudo('echo -e "n\n\n\n\n+200M\nn\n\n\n\n\nw\n" | fdisk "%s"'
          % device, quiet=True)
     sudo('wipefs -a %s' % boot)
     sudo('wipefs -a %s' % root)
