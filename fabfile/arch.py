@@ -88,7 +88,7 @@ EOF""" % root_label
             sudo('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
                  ' "%s/boot/syslinux/syslinux.cfg"' % (root_label, env.dest))
             sudo('sed -i "/TIMEOUT/s/^.*$/TIMEOUT=10/"'
-                 ' "%s/boot/syslinux/syslinux.conf"' % env.dest)
+                 ' "%s/boot/syslinux/syslinux.cfg"' % env.dest)
             sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
                  % env.dest)
     sudo('arch-chroot "%s" /usr/bin/mkinitcpio -p linux' % env.dest)
