@@ -116,8 +116,9 @@ def chroot_puppet():
 export LANG=en_AU.UTF-8
 export LC_CTYPE=en_AU.UTF-8
 hostname $(cat %s/etc/hostname)
-puppet agent -t --tags os_default::misc,os_default::pacman --no-noop
-puppet agent -t --no-noop
+git clone https://github.com/justin8/puppet /tmp/puppet
+puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default::misc,os_default::pacman --no-noop /tmp/puppet/manifests/site.pp
+puppet apply --modulepath=/tmp/puppet/modules --test --no-noop /tmp/puppet/manifests/site.pp
 EOF""" % env.dest
     sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % env.dest + script, quiet=True)
     sudo('chmod +x %s/var/tmp/puppet.sh' % env.dest, quiet=True)
