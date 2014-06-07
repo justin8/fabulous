@@ -210,6 +210,9 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
     gui = booleanize(gui)
     quiet = booleanize(quiet)
 
+    if gui and not gpu:
+        raise RuntimeError("You must specify a GPU if GUI is selected")
+
     env.quiet = quiet
 
     # Sanity checks
@@ -276,21 +279,15 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         sudo('echo "root:%s" | arch-chroot "%s" chpasswd'
              % (env.password, env.dest), quiet=True)
 
-        print("*** Configuring network...")
-        network_config(fqdn)
-
-        print("*** Configuring base system via puppet...")
-        chroot_puppet()
-
-        print("*** Configuring base system services...")
-        enable_services(base_services)
-
-        print('*** Generating fstab...')
-        fstab(fqdn)
-
         if ssh_key:
             print("*** Installing ssh key...")
             install_ssh_key(ssh_key)
+
+        print("*** Configuring network...")
+        network_config(fqdn)
+
+        print("*** Configuring base system services...")
+        enable_services(base_services)
 
         if gpu:
             print('*** Installing graphics drivers...')
@@ -299,6 +296,12 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         if gui:
             print('*** Installing GUI packages...')
             gui_install()
+
+        print("*** Configuring base system via puppet...")
+        chroot_puppet()
+
+        print('*** Generating fstab...')
+        fstab(fqdn)
 
         print("*** Installing root dotfiles configuration...")
         dotfiles_install()
