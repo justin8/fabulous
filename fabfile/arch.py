@@ -293,6 +293,9 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         print("*** Configuring base system services...")
         enable_services(base_services)
 
+        print('*** Generating fstab...')
+        fstab(fqdn)
+
         print("*** Configuring base system via puppet...")
         chroot_puppet()
 
@@ -303,9 +306,6 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         if gui:
             print('*** Installing GUI packages...')
             gui_install()
-
-        print('*** Generating fstab...')
-        fstab(fqdn)
 
         print("*** Installing root dotfiles configuration...")
         dotfiles_install()
