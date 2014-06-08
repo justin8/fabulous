@@ -152,9 +152,9 @@ def get_shortname(fqdn):
 
 def cleanup(device):
     print('*** Cleaning up...')
-    while sudo('umount -l %s1' % device).return_code == 0:
+    while sudo('umount -l %s1' % device,warn_only=True).return_code == 0:
         pass
-    while sudo('umount -l %s2' % device).return_code == 0:
+    while sudo('umount -l %s2' % device,warn_only=True).return_code == 0:
         pass
     sudo('rmdir %s' % env.dest)
 
