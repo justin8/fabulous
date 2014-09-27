@@ -9,8 +9,8 @@ from fabric.api import env, put, sudo, task
 
 valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox']
 base_packages = [
-    'base', 'btrfs-progs', 'cifs-utils', 'git', 'networkmanager', 'pkgfile',
-    'puppet', 'openssh', 'rsync', 'vim-python2', 'zsh']
+    'base', 'btrfs-progs', 'cifs-utils', 'git', 'networkmanager',
+    'pkgfile', 'puppet', 'openssh', 'rsync', 'vim', 'zsh']
 base_services = ['NetworkManager', 'puppet', 'sshd']
 gui_packages = [
     'adwaita-x-dark-and-light-theme', 'aspell-en', 'gdm', 'gnome',
