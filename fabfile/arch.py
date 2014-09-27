@@ -9,7 +9,7 @@ from fabric.api import env, put, sudo, task
 
 valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox']
 base_packages = [
-    'base', 'btrfs-progs', 'cifs-utils', 'dray-repo', 'git', 'networkmanager',
+    'base', 'btrfs-progs', 'cifs-utils', 'git', 'networkmanager',
     'pkgfile', 'puppet', 'openssh', 'rsync', 'vim', 'zsh']
 base_services = ['NetworkManager', 'puppet', 'sshd']
 gui_packages = [
