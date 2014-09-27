@@ -51,16 +51,17 @@ def gpu_install(gpu):
     pacstrap(gpu_packages)
 
 
-def fstab(fqdn):
+def fstab(fqdn, remote):
     shortname = get_shortname(fqdn)
     sudo('mkdir -p %s/mnt/btrfs' % env.dest)
     sudo('genfstab -L "%s" > "%s/etc/fstab"' % (env.dest, env.dest))
     sudo('echo "LABEL=%s-btrfs /mnt/btrfs btrfs defaults,volid=0 0 0"'
          '>> %s/etc/fstab' % (shortname, env.dest))
-    packages_mount = "//abachi/pacman-pkg-x86_64 /var/cache/pacman/pkg cifs" \
-                     " credentials=/root/.smbcreds,noauto,x-systemd." \
-                     "automount 0 0"
-    sudo('echo "%s" >> %s/etc/fstab' % (packages_mount, env.dest))
+    if not remote:
+        packages_mount = "//abachi/pacman-pkg /var/cache/pacman/pkg cifs" \
+                         " credentials=/root/.smbcreds,noauto,x-systemd." \
+                         "automount 0 0"
+        sudo('echo "%s" >> %s/etc/fstab' % (packages_mount, env.dest))
 
 
 def network_config(fqdn):
@@ -200,7 +201,8 @@ def prepare_device_bios(device, shortname, boot, root):
 
 @task
 def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
-               gui=False, ssh_key=None, quiet=False, extra_packages=None):
+               gui=False, ssh_key=None, quiet=False, extra_packages=None,
+               remote=False):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
     If env.password is specified it will be set as the root password on the
@@ -294,7 +296,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         enable_services(base_services)
 
         print('*** Generating fstab...')
-        fstab(fqdn)
+        fstab(fqdn, remote)
 
         print("*** Configuring base system via puppet...")
         chroot_puppet()
