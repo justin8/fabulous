@@ -9,7 +9,7 @@ from fabric.api import env, put, sudo, task
 
 valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox']
 base_packages = [
-    'base', 'btrfs-progs', 'cifs-utils', 'git', 'networkmanager',
+    'base', 'btrfs-progs', 'cifs-utils', 'dray-repo', 'git', 'networkmanager',
     'pkgfile', 'puppet', 'openssh', 'rsync', 'vim', 'zsh']
 base_services = ['NetworkManager', 'puppet', 'sshd']
 gui_packages = [
@@ -30,6 +30,11 @@ def pacstrap(packages):
     """
     sudo('pacstrap -c "%s" %s' % (env.dest, ' '.join(packages)),
          quiet=env.quiet)
+
+
+def enable_dray_repo():
+    sudo('curl -o /tmp/repo.pkg.tar.xz https://repo.dray.be/dray-repo-0.7-1-any.pkg.tar.xz')
+    sudo('pacman -U --noconfirm /tmp/repo.pkg.tar.xz')
 
 
 def gpu_install(gpu):
@@ -276,6 +281,9 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         if not re.search('\s%s\s+type' % env.dest, mounts):
             raise RuntimeError("The specified mountpoint is not mounted")
     try:
+        print('*** Enabling dray.be repo...')
+        enable_dray_repo()
+
         print("*** Installing base OS...")
         pacstrap(base_packages)
 
