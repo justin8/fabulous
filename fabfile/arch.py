@@ -33,8 +33,9 @@ def pacstrap(packages):
 
 
 def enable_multilib_repo():
-    sudo('echo [multilib] >> /etc/pacman.conf')
-    sudo('echo Include = /etc/pacman.d/mirrorlist >> /etc/pacman.conf')
+    if sudo("grep -q '^\[multilib\]' /etc/pacman.conf", warn_only=True).succeeded:
+        sudo('echo [multilib] >> /etc/pacman.conf')
+        sudo('echo Include = /etc/pacman.d/mirrorlist >> /etc/pacman.conf')
 
 
 def enable_dray_repo():
