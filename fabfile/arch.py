@@ -207,10 +207,10 @@ def prepare_device_bios(device, shortname, boot, root):
 @task
 def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
                gui=False, ssh_key=None, quiet=False, extra_packages=None,
-               remote=False):
+               remote=False, new_password=None):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
-    If env.password is specified it will be set as the root password on the
+    If new_password is specified it will be set as the root password on the
     machine. Otherwise a random password will be set for security purposes.
 
     gpu: Should be one of: nvidia, nouveau, ati, intel, vbox
@@ -287,11 +287,11 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         print("*** Installing base OS...")
         pacstrap(base_packages)
 
-        if not env.password:
-            env.password = generate_password(16)
+        if not env.new_password:
+            env.new_password = generate_password(16)
         print('*** Setting root password...')
         sudo('echo "root:%s" | arch-chroot "%s" chpasswd'
-             % (env.password, env.dest), quiet=True)
+             % (env.new_password, env.dest), quiet=True)
 
         if ssh_key:
             print("*** Installing ssh key...")
