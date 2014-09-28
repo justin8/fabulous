@@ -179,12 +179,18 @@ def install_ssh_key(keyfile):
         mode=0600)
 
 
-def dotfiles_install():
-    script = """#!/bin/bash
-        mount /var/cache/pacman/pkg
-        git clone https://github.com/justin8/dotfiles /var/tmp/dotfiles
-        /var/tmp/dotfiles/install
-        umount -l /var/cache/pacman/pkg"""
+def dotfiles_install(remote):
+    if remote:
+        script = """#!/bin/bash
+            git clone https://github.com/justin8/dotfiles /var/tmp/dotfiles
+            /var/tmp/dotfiles/install"""
+    else:
+        script = """#!/bin/bash
+            mount /var/cache/pacman/pkg
+            git clone https://github.com/justin8/dotfiles /var/tmp/dotfiles
+            /var/tmp/dotfiles/install
+            umount -l /var/cache/pacman/pkg"""
+
     sudo('echo "%s" > %s/var/tmp/dotfiles-install' % (script, env.dest))
     sudo('chmod +x %s/var/tmp/dotfiles-install' % env.dest)
     sudo('arch-chroot "%s" /var/tmp/dotfiles-install' % env.dest)
@@ -326,7 +332,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
             gui_install()
 
         print("*** Installing root dotfiles configuration...")
-        dotfiles_install()
+        dotfiles_install(remote)
 
         if extra_packages:
             print("*** Installing additional packages...")
