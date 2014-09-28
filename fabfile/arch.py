@@ -124,7 +124,7 @@ export LC_CTYPE=C
 hostname $(cat %s/etc/hostname)
 git clone https://github.com/justin8/puppet /tmp/puppet
 puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default::misc,os_default::pacman --no-noop /tmp/puppet/manifests/site.pp
-puppet apply --modulepath=/tmp/puppet/modules --test --tasg os_default --no-noop /tmp/puppet/manifests/site.pp
+puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default --no-noop /tmp/puppet/manifests/site.pp
 EOF""" % env.dest
     sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % env.dest + script, quiet=True)
     sudo('chmod +x %s/var/tmp/puppet.sh' % env.dest, quiet=True)
@@ -158,9 +158,9 @@ def get_shortname(fqdn):
 
 def cleanup(device):
     print('*** Cleaning up...')
-    while sudo('umount -l %s1' % device,warn_only=True).return_code == 0:
+    while sudo('umount -l %s1' % device, warn_only=True).return_code == 0:
         pass
-    while sudo('umount -l %s2' % device,warn_only=True).return_code == 0:
+    while sudo('umount -l %s2' % device, warn_only=True).return_code == 0:
         pass
     sudo('rmdir %s' % env.dest)
 
@@ -287,11 +287,11 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         print("*** Installing base OS...")
         pacstrap(base_packages)
 
-        if not env.new_password:
-            env.new_password = generate_password(16)
+        if not new_password:
+            new_password = generate_password(16)
         print('*** Setting root password...')
         sudo('echo "root:%s" | arch-chroot "%s" chpasswd'
-             % (env.new_password, env.dest), quiet=True)
+             % (new_password, env.dest), quiet=True)
 
         if ssh_key:
             print("*** Installing ssh key...")
