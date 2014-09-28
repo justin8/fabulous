@@ -32,6 +32,11 @@ def pacstrap(packages):
          quiet=env.quiet)
 
 
+def enable_multilib_repo():
+    sudo('echo [multilib] >> /etc/pacman.conf')
+    sudo('echo Include = /etc/pacman.d/mirrorlist >> /etc/pacman.conf')
+
+
 def enable_dray_repo():
     sudo('curl -o /tmp/repo.pkg.tar.xz https://repo.dray.be/dray-repo-0.7-1-any.pkg.tar.xz')
     sudo('pacman -U --noconfirm /tmp/repo.pkg.tar.xz')
@@ -283,6 +288,9 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
     try:
         print('*** Enabling dray.be repo...')
         enable_dray_repo()
+
+        print('*** Enabling multilib repo...')
+        enable_multilib_repo()
 
         print("*** Installing base OS...")
         pacstrap(base_packages)
