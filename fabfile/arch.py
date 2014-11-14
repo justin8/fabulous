@@ -45,15 +45,15 @@ def enable_dray_repo():
 
 def gpu_install(gpu):
     if gpu == 'nvidia':
-        gpu_packages = ['lib32-nvidia-libgl', 'nvidia']
+        gpu_packages = ['lib32-mesa', 'lib32-nvidia-libgl', 'nvidia']
     if gpu == 'nouveau':
-        gpu_packages = ['lib32-nouveau-dri', 'xf86-video-nouveau']
+        gpu_packages = ['lib32-mesa', 'xf86-video-nouveau']
         sudo("""sed -i '/MODULES=/s/"$/ nouveau"/' %s/etc/mkinitcpio.conf"""
              % env.dest)
     if gpu == 'amd':
-        gpu_packages = ['lib32-ati-dri', 'xf86-video-ati']
+        gpu_packages = ['lib32-mesa', 'xf86-video-ati']
     if gpu == 'intel':
-        gpu_packages = ['lib32-intel-dri', 'xf86-video-intel']
+        gpu_packages = ['lib32-mesa', 'xf86-video-intel']
     if gpu == 'vbox':
         gpu_packages = ['virtualbox-guest-utils']
         sudo("echo -e 'vboxguest\nvboxsf\nvboxvideo' >"
