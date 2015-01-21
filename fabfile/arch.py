@@ -62,12 +62,13 @@ def gpu_install(gpu):
     pacstrap(gpu_packages)
 
 
-def fstab(fqdn, remote):
+def fstab(fqdn, remote, device=None):
     shortname = get_shortname(fqdn)
     sudo('mkdir -p %s/mnt/btrfs' % env.dest)
     sudo('genfstab -L "%s" > "%s/etc/fstab"' % (env.dest, env.dest))
-    sudo('echo "LABEL=%s-btrfs /mnt/btrfs btrfs defaults,volid=0 0 0"'
-         '>> %s/etc/fstab' % (shortname, env.dest))
+    if device:
+        sudo('echo "LABEL=%s-btrfs /mnt/btrfs btrfs defaults,volid=0 0 0"'
+             '>> %s/etc/fstab' % (shortname, env.dest))
     if not remote:
         packages_mount = "//abachi/pacman-pkg /var/cache/pacman/pkg cifs" \
                          " credentials=/root/.smbcreds,noauto,x-systemd." \
@@ -159,7 +160,11 @@ def gui_install():
 
 
 def get_shortname(fqdn):
-    return re.search('^(.*?)\..+', fqdn).groups()[0]
+    # Fix this to work if there is no fqdn and only has a short name
+    if re.search('\.', fqdn):
+        return re.search('^(.*?)\..+', fqdn).groups()[0]
+    else:
+        return fqdn
 
 
 def cleanup(device):
@@ -319,7 +324,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         enable_services(base_services)
 
         print('*** Generating fstab...')
-        fstab(fqdn, remote)
+        fstab(fqdn, remote, device)
 
         print("*** Configuring base system via puppet...")
         chroot_puppet()
@@ -344,6 +349,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
             boot_loader('%s-btrfs' % shortname, efi=efi)
         else:
             boot_loader(efi=efi)
+            print("Make sure to configure the boot loader since no device was specified!")
     finally:
         if device:
             cleanup(device)
