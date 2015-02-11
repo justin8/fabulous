@@ -1,6 +1,7 @@
 
 from __future__ import print_function
 
+import os
 import random
 import re
 import string
@@ -254,6 +255,10 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
 
     if gpu and gpu not in valid_gpus:
         raise RuntimeError("Invalid gpu specified")
+
+    if ssh_key:
+        if not os.path.isfile(ssh_key):
+            raise RuntimeError("The specified SSH key cannot be found!")
 
     if device:
         # check device exists
