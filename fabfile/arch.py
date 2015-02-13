@@ -130,12 +130,11 @@ def chroot_puppet():
 export LANG=C
 export LC_CTYPE=C
 hostname $(cat %s/etc/hostname)
-git clone https://github.com/justin8/puppet /tmp/puppet
-git -C /tmp/puppet submodule update --init
-git clone https://github.com/justin8/hieradata /tmp/hieradata
-sed -i 's|/etc/hieradata|/tmp/hieradata|g' /tmp/puppet/hiera.yaml
-puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default::misc,os_default::pacman --no-noop /tmp/puppet/manifests/site.pp
-puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default --no-noop /tmp/puppet/manifests/site.pp
+git clone https://github.com/justin8/puppet /etc/puppet
+git -C /etc/puppet submodule update --init
+git clone https://github.com/justin8/hieradata /etc/hieradata
+puppet apply --modulepath=/etc/puppet/modules --test --tags os_default::misc,os_default::pacman --no-noop /etc/puppet/manifests/site.pp
+puppet apply --modulepath=/etc/puppet/modules --test --tags os_default --no-noop /etc/puppet/manifests/site.pp
 EOF""" % env.dest
     sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % env.dest + script, quiet=True)
     sudo('chmod +x %s/var/tmp/puppet.sh' % env.dest, quiet=True)
