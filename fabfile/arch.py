@@ -132,6 +132,8 @@ export LC_CTYPE=C
 hostname $(cat %s/etc/hostname)
 git clone https://github.com/justin8/puppet /tmp/puppet
 git -C /tmp/puppet submodule update --init
+git clone https://github.com/justin8/hieradata /tmp/hieradata
+sed -i 's|/etc/hieradata|/tmp/hieradata|g' /tmp/puppet/hiera.yaml
 puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default::misc,os_default::pacman --no-noop /tmp/puppet/manifests/site.pp
 puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default --no-noop /tmp/puppet/manifests/site.pp
 EOF""" % env.dest
