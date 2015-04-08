@@ -9,7 +9,7 @@ from fabric.api import env, put, sudo, task
 
 valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox']
 base_packages = [
-    'base', 'btrfs-progs', 'cifs-utils', 'git', 'networkmanager',
+    'base', 'btrfs-progs', 'git', 'networkmanager', 'nfs-utils',
     'pkgfile', 'puppet', 'openssh', 'rsync', 'vim', 'zsh']
 base_services = ['NetworkManager', 'puppet', 'sshd']
 gui_packages = [
@@ -68,8 +68,8 @@ def fstab(fqdn, remote):
     sudo('echo "LABEL=%s-btrfs /mnt/btrfs btrfs defaults,volid=0 0 0"'
          '>> %s/etc/fstab' % (shortname, env.dest))
     if not remote:
-        packages_mount = "//abachi/pacman-pkg /var/cache/pacman/pkg cifs" \
-                         " credentials=/root/.smbcreds,noauto,x-systemd." \
+        packages_mount = "abachi.local:/pacman /var/cache/pacman/pkg nfs" \
+                         " defaults,noauto,x-systemd." \
                          "automount 0 0"
         sudo('echo "%s" >> %s/etc/fstab' % (packages_mount, env.dest))
 
