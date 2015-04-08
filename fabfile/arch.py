@@ -311,6 +311,10 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         print('*** Enabling multilib repo...')
         enable_multilib_repo()
 
+        if not remote:
+            print('*** Mounting package cache...')
+            sudo('mount -t nfs abachi.local:/pacman /var/cache/pacman/pkg')
+
         print("*** Installing base OS...")
         pacstrap(base_packages)
 
