@@ -1,6 +1,7 @@
 
 from __future__ import print_function
 
+import os
 import random
 import re
 import string
@@ -33,8 +34,9 @@ def pacstrap(packages):
 
 
 def enable_multilib_repo():
-    sudo('echo [multilib] >> /etc/pacman.conf')
-    sudo('echo Include = /etc/pacman.d/mirrorlist >> /etc/pacman.conf')
+    if not sudo("grep -q '^\[multilib\]' /etc/pacman.conf", warn_only=True).succeeded:
+        sudo('echo [multilib] >> /etc/pacman.conf')
+        sudo('echo Include = /etc/pacman.d/mirrorlist >> /etc/pacman.conf')
 
 
 def enable_dray_repo():
@@ -61,12 +63,13 @@ def gpu_install(gpu):
     pacstrap(gpu_packages)
 
 
-def fstab(fqdn, remote):
+def fstab(fqdn, remote, device=None):
     shortname = get_shortname(fqdn)
     sudo('mkdir -p %s/mnt/btrfs' % env.dest)
     sudo('genfstab -L "%s" > "%s/etc/fstab"' % (env.dest, env.dest))
-    sudo('echo "LABEL=%s-btrfs /mnt/btrfs btrfs defaults,volid=0 0 0"'
-         '>> %s/etc/fstab' % (shortname, env.dest))
+    if device:
+        sudo('echo "LABEL=%s-btrfs /mnt/btrfs btrfs defaults,volid=0 0 0"'
+             '>> %s/etc/fstab' % (shortname, env.dest))
     if not remote:
         packages_mount = "abachi.local:/pacman /var/cache/pacman/pkg nfs" \
                          " defaults,noauto,x-systemd." \
@@ -127,9 +130,11 @@ def chroot_puppet():
 export LANG=C
 export LC_CTYPE=C
 hostname $(cat %s/etc/hostname)
-git clone https://github.com/justin8/puppet /tmp/puppet
-puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default::misc,os_default::pacman --no-noop /tmp/puppet/manifests/site.pp
-puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default --no-noop /tmp/puppet/manifests/site.pp
+git clone https://github.com/justin8/puppet /etc/puppet
+git -C /etc/puppet submodule update --init
+git clone https://github.com/justin8/hieradata /etc/hieradata
+puppet apply --modulepath=/etc/puppet/modules --test --tags os_default::misc,os_default::pacman --no-noop /etc/puppet/manifests/site.pp
+puppet apply --modulepath=/etc/puppet/modules --test --tags os_default --no-noop /etc/puppet/manifests/site.pp
 EOF""" % env.dest
     sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % env.dest + script, quiet=True)
     sudo('chmod +x %s/var/tmp/puppet.sh' % env.dest, quiet=True)
@@ -158,7 +163,11 @@ def gui_install():
 
 
 def get_shortname(fqdn):
-    return re.search('^(.*?)\..+', fqdn).groups()[0]
+    # Fix this to work if there is no fqdn and only has a short name
+    if re.search('\.', fqdn):
+        return re.search('^(.*?)\..+', fqdn).groups()[0]
+    else:
+        return fqdn
 
 
 def cleanup(device):
@@ -249,6 +258,10 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
     if gpu and gpu not in valid_gpus:
         raise RuntimeError("Invalid gpu specified")
 
+    if ssh_key:
+        if not os.path.isfile(ssh_key):
+            raise RuntimeError("The specified SSH key cannot be found!")
+
     if device:
         # check device exists
         if sudo('test -b %s' % device, quiet=True).return_code != 0:
@@ -318,7 +331,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         enable_services(base_services)
 
         print('*** Generating fstab...')
-        fstab(fqdn, remote)
+        fstab(fqdn, remote, device)
 
         print("*** Configuring base system via puppet...")
         chroot_puppet()
@@ -343,6 +356,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
             boot_loader('%s-btrfs' % shortname, efi=efi)
         else:
             boot_loader(efi=efi)
+            print("Make sure to configure the boot loader since no device was specified!")
     finally:
         if device:
             cleanup(device)
