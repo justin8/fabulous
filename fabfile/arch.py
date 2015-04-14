@@ -15,7 +15,7 @@ base_packages = [
 base_services = ['NetworkManager', 'puppet', 'sshd']
 gui_packages = [
     'adwaita-x-dark-and-light-theme', 'aspell-en', 'gdm', 'gnome',
-    'pulseaudio', 'pulseaudio-alsa', 'terminator', 'ttf-dejavu']
+    'gnome-extra', 'pulseaudio', 'pulseaudio-alsa', 'terminator', 'ttf-dejavu']
 gui_services = ['gdm']
 
 
@@ -95,8 +95,8 @@ options  root=LABEL=%s rw
 EOF""" % root_label
             pacstrap(['gummiboot'])
             sudo('arch-chroot %s gummiboot install' % env.dest)
-            sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest
-                 + boot_loader_entry)
+            sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest +
+                 boot_loader_entry)
         else:
             pacstrap(['syslinux'])
             sudo('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
