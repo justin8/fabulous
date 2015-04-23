@@ -1,6 +1,7 @@
 
 from __future__ import print_function
 
+import os
 import random
 import re
 import string
@@ -14,7 +15,7 @@ base_packages = [
 base_services = ['NetworkManager', 'puppet', 'sshd']
 gui_packages = [
     'adwaita-x-dark-and-light-theme', 'aspell-en', 'gdm', 'gnome',
-    'pulseaudio', 'pulseaudio-alsa', 'terminator', 'ttf-dejavu']
+    'gnome-extra', 'pulseaudio', 'pulseaudio-alsa', 'terminator', 'ttf-dejavu']
 gui_services = ['gdm']
 
 
@@ -89,8 +90,8 @@ options  root=LABEL=%s rw
 EOF""" % root_label
             pacstrap(['gummiboot'])
             sudo('arch-chroot %s gummiboot install' % env.dest)
-            sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest
-                 + boot_loader_entry)
+            sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest +
+                 boot_loader_entry)
         else:
             pacstrap(['syslinux'])
             sudo('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
@@ -124,9 +125,11 @@ def chroot_puppet():
 export LANG=C
 export LC_CTYPE=C
 hostname $(cat %s/etc/hostname)
-git clone https://github.com/justin8/puppet /tmp/puppet
-puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default::misc,os_default::pacman --no-noop /tmp/puppet/manifests/site.pp
-puppet apply --modulepath=/tmp/puppet/modules --test --tags os_default --no-noop /tmp/puppet/manifests/site.pp
+git clone https://github.com/justin8/puppet /etc/puppet
+git -C /etc/puppet submodule update --init
+git clone https://github.com/justin8/hieradata /etc/hieradata
+puppet apply --modulepath=/etc/puppet/modules --test --tags os_default::misc,os_default::pacman --no-noop /etc/puppet/manifests/site.pp
+puppet apply --modulepath=/etc/puppet/modules --test --tags os_default --no-noop /etc/puppet/manifests/site.pp
 EOF""" % env.dest
     sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % env.dest + script, quiet=True)
     sudo('chmod +x %s/var/tmp/puppet.sh' % env.dest, quiet=True)
@@ -256,6 +259,10 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
     if gpu and gpu not in valid_gpus:
         raise RuntimeError("Invalid gpu specified")
 
+    if ssh_key:
+        if not os.path.isfile(ssh_key):
+            raise RuntimeError("The specified SSH key cannot be found!")
+
     if device:
         # check device exists
         if sudo('test -b %s' % device, quiet=True).return_code != 0:
@@ -304,6 +311,10 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
 
         print('*** Enabling multilib repo...')
         enable_multilib_repo()
+
+        if not remote:
+            print('*** Mounting package cache...')
+            sudo('mount -t nfs abachi.local:/pacman /var/cache/pacman/pkg')
 
         print("*** Installing base OS...")
         pacstrap(base_packages)
