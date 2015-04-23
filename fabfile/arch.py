@@ -62,18 +62,13 @@ def gpu_install(gpu):
     pacstrap(gpu_packages)
 
 
-def fstab(fqdn, remote, device=None):
+def fstab(fqdn, device=None):
     shortname = get_shortname(fqdn)
     sudo('mkdir -p %s/mnt/btrfs' % env.dest)
     sudo('genfstab -L "%s" > "%s/etc/fstab"' % (env.dest, env.dest))
     if device:
         sudo('echo "LABEL=%s-btrfs /mnt/btrfs btrfs defaults,volid=0 0 0"'
              '>> %s/etc/fstab' % (shortname, env.dest))
-    if not remote:
-        packages_mount = "//abachi/pacman-pkg /var/cache/pacman/pkg cifs" \
-                         " credentials=/root/.smbcreds,noauto,x-systemd." \
-                         "automount 0 0"
-        sudo('echo "%s" >> %s/etc/fstab' % (packages_mount, env.dest))
 
 
 def network_config(fqdn):
@@ -330,7 +325,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         enable_services(base_services)
 
         print('*** Generating fstab...')
-        fstab(fqdn, remote, device)
+        fstab(fqdn, device)
 
         print('*** Setting initial locale...')
         set_locale()
