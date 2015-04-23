@@ -9,7 +9,7 @@ from fabric.api import env, put, sudo, task
 
 valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox']
 base_packages = [
-    'base', 'btrfs-progs', 'cifs-utils', 'git', 'networkmanager',
+    'base', 'btrfs-progs', 'cifs-utils', 'git', 'gptfdisk', 'networkmanager',
     'pkgfile', 'puppet', 'openssh', 'rsync', 'vim', 'zsh']
 base_services = ['NetworkManager', 'puppet', 'sshd']
 gui_packages = [
@@ -51,7 +51,7 @@ def gpu_install(gpu):
         sudo("""sed -i '/MODULES=/s/"$/ nouveau"/' %s/etc/mkinitcpio.conf"""
              % env.dest)
     if gpu == 'amd':
-        gpu_packages = ['lib32-mesa', 'xf86-video-ati']
+        gpu_packages = ['lib32-mesa', 'xf86-video-ati', 'mesa-libgl', 'lib32-mesa-libgl', 'mesa-vdpau', 'lib32-mesa-vdpau']
     if gpu == 'intel':
         gpu_packages = ['lib32-mesa', 'xf86-video-intel']
     if gpu == 'vbox':
@@ -149,6 +149,12 @@ def enable_services(services):
     for service in services:
         sudo("arch-chroot %s systemctl enable %s"
              % (env.dest, service), quiet=env.quiet)
+
+
+def set_locale():
+    sudo('echo LANG=en_AU.utf8 > /etc/locale.conf')
+    sudo('echo "en_AU.UTF-8 UTF-8" > /etc/locale.gen')
+    sudo('arch-chroot %s locale-gen' % env.dest)
 
 
 def gui_install():
@@ -325,6 +331,9 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
 
         print('*** Generating fstab...')
         fstab(fqdn, remote, device)
+
+        print('*** Setting initial locale...')
+        set_locale()
 
         print("*** Configuring base system via puppet...")
         chroot_puppet()
