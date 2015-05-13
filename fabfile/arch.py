@@ -40,7 +40,7 @@ def enable_multilib_repo():
 
 
 def enable_dray_repo():
-    sudo('curl -o /tmp/repo.pkg.tar.xz https://repo.dray.be/dray-repo-0.7-1-any.pkg.tar.xz')
+    sudo('curl -o /tmp/repo.pkg.tar.xz https://repo.dray.be/dray-repo-latest')
     sudo('pacman -U --noconfirm /tmp/repo.pkg.tar.xz')
 
 
