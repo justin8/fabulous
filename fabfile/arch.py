@@ -8,14 +8,13 @@ import string
 
 from fabric.api import env, put, sudo, task
 
-valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox']
+valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
-    'base', 'btrfs-progs', 'git', 'networkmanager', 'nfs-utils',
+    'base', 'btrfs-progs', 'cronie', 'git', 'gptfdisk', 'networkmanager', 'nfs-utils',
     'pkgfile', 'puppet', 'openssh', 'rsync', 'vim', 'zsh']
-base_services = ['NetworkManager', 'puppet', 'sshd']
+base_services = ['cronie', 'puppet', 'sshd']
 gui_packages = [
-    'adwaita-x-dark-and-light-theme', 'aspell-en', 'gdm', 'gnome',
-    'gnome-extra', 'pulseaudio', 'pulseaudio-alsa', 'terminator', 'ttf-dejavu']
+    'aspell-en', 'gdm', 'gnome', 'gnome-extra', 'terminator', 'ttf-dejavu']
 gui_services = ['gdm']
 
 
@@ -59,8 +58,16 @@ def gpu_install(gpu):
         gpu_packages = ['virtualbox-guest-utils']
         sudo("echo -e 'vboxguest\nvboxsf\nvboxvideo' >"
              "'%s/etc/modules-load.d/virtualbox.conf'" % env.dest)
+    if gpu == 'vmware':
+        gpu_packages = ['open-vm-tools', 'xf86-input-vmmouse', 'xf86-video-vmware']
+        sudo("""sed -i 's/MODULES="/MODULES="vmhgfs /' %s/etc/mkinitcpio.conf""" % env.dest)
+        sudo("echo 'cat /proc/version > /etc/arch-release' > %s/etc/cron.daily/vmware-version-update" % env.dest)
+        sudo("chmod +x %s/etc/cron.daily/vmware-version-update" % env.dest)
 
     pacstrap(gpu_packages)
+
+    if gpu == 'vmware':
+        enable_services(['vmtoolsd', 'vmware-vmblock-fuse'])
 
 
 def fstab(fqdn, remote, device=None):
@@ -129,6 +136,7 @@ def chroot_puppet():
     script = """#!/bin/bash
 export LANG=C
 export LC_CTYPE=C
+export LC_ALL=C
 hostname $(cat %s/etc/hostname)
 git clone https://github.com/justin8/puppet /etc/puppet
 git -C /etc/puppet submodule update --init
