@@ -28,8 +28,23 @@ def pacstrap(packages):
     """
     Accepts a list of packages to be installed to env.dest.
     """
-    sudo('pacstrap -c "%s" %s' % (env.dest, ' '.join(packages)),
-         quiet=env.quiet)
+    script = """#!/bin/bash
+count=0
+while [[ $count -lt 5 ]]
+do
+    pacstrap -c "%s" %s | tee /tmp/out
+    if grep 'invalid or corrupted package' /tmp/out
+    then
+        count=$((count+1))
+        echo "Failed $count times!"
+    else
+        break
+    fi
+done
+EOF""" % (env.dest, ' '.join(packages))
+    sudo("cat <<-EOF > /tmp/pacstrap.sh\n" + script, quiet=True)
+    sudo('chmod +x %s/var/tmp/pacstrap.sh' % env.dest, quiet=True)
+    sudo('/tmp/pacstrap.sh', quiet=env.quiet)
 
 
 def enable_multilib_repo():
