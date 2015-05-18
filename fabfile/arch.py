@@ -251,7 +251,7 @@ def prepare_device_bios(device, shortname, boot, root):
 @task
 def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
                gui=False, ssh_key=None, quiet=False, extra_packages=None,
-               remote=False, new_password=None):
+               remote=None, new_password=None):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
     If new_password is specified it will be set as the root password on the
@@ -259,6 +259,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
 
     gpu: Should be one of: nvidia, nouveau, ati, intel, vbox
     gui: Will configure a basic gnome environment
+    remote: Set if not building locally to abachi. Should be auto detected if not set.
     """
 
     efi = booleanize(efi)
@@ -285,6 +286,13 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
     if ssh_key:
         if not os.path.isfile(ssh_key):
             raise RuntimeError("The specified SSH key cannot be found!")
+
+    if remote is None:
+        # Auto detect if we are remote or not. Copied from facter fact
+        remote = False
+        if sudo("nslookup abachi.dray.be | grep -o '192.168.1.15'") == '192.168.1.15':
+            if sudo("ip route|grep default|grep -o 192.168.1.1") == '192.168.1.1':
+                remote = False
 
     if device:
         # check device exists
