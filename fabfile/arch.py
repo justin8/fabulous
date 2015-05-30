@@ -11,7 +11,7 @@ from fabric.api import env, put, sudo, task
 valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
     'base', 'btrfs-progs', 'cronie', 'git', 'gptfdisk', 'networkmanager', 'nfs-utils',
-    'pkgfile', 'puppet', 'openssh', 'rsync', 'vim', 'zsh']
+    'pkgfile', 'puppet3', 'openssh', 'rsync', 'vim', 'zsh']
 base_services = ['cronie', 'puppet', 'sshd']
 gui_packages = [
     'aspell-en', 'gdm', 'gnome', 'gnome-extra', 'terminator', 'ttf-dejavu']
