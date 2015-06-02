@@ -5,6 +5,7 @@ import os
 import random
 import re
 import string
+import sys
 
 from fabric.api import env, put, sudo, task
 
@@ -42,8 +43,8 @@ do
     fi
 done
 EOF""" % (env.dest, ' '.join(packages))
-    sudo("cat <<-EOF > /tmp/pacstrap.sh\n" + script, quiet=True)
-    sudo('chmod +x %s/var/tmp/pacstrap.sh' % env.dest, quiet=True)
+    sudo("cat <<-'EOF' > /tmp/pacstrap.sh\n" + script, quiet=True)
+    sudo('chmod +x /tmp/pacstrap.sh', quiet=True)
     sudo('/tmp/pacstrap.sh', quiet=env.quiet)
 
 
@@ -56,6 +57,12 @@ def enable_multilib_repo():
 def enable_dray_repo():
     sudo('curl -o /tmp/repo.pkg.tar.xz https://repo.dray.be/dray-repo-latest')
     sudo('pacman -U --noconfirm /tmp/repo.pkg.tar.xz')
+
+
+def enable_mdns():
+    sudo('pacman -Sy --noconfirm avahi nss-mdns')
+    sudo("sed -i 's/^hosts.*/hosts: files mdns_minimal [NOTFOUND=return] dns myhostname/' /etc/nsswitch.conf")
+    sudo('nscd -i hosts', warn_only=True, quiet=True)
 
 
 def gpu_install(gpu):
@@ -148,6 +155,7 @@ export LANG=C
 export LC_CTYPE=C
 export LC_ALL=C
 hostname $(cat %s/etc/hostname)
+rm -rf /etc/puppet /etc/hieradata
 git clone https://github.com/justin8/puppet /etc/puppet
 git -C /etc/puppet submodule update --init
 git clone https://github.com/justin8/hieradata /etc/hieradata
@@ -343,9 +351,15 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         print('*** Enabling multilib repo...')
         enable_multilib_repo()
 
+        print('*** Enabling mDNS...')
+        enable_mdns()
+
         if not remote:
             print('*** Mounting package cache...')
-            sudo('mount -t nfs abachi.local:/pacman /var/cache/pacman/pkg')
+            out = sudo('mount -t nfs abachi.local:/pacman /var/cache/pacman/pkg', warn_only=True)
+            if out.return_code not in {32, 0}:
+                print("Failed to mount package cache. Aborting")
+                sys.exit(1)
 
         print("*** Installing base OS...")
         pacstrap(base_packages)
