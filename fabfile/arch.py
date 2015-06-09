@@ -67,7 +67,7 @@ def enable_mdns():
 
 def gpu_install(gpu):
     if gpu == 'nvidia':
-        gpu_packages = ['lib32-mesa', 'lib32-nvidia-libgl', 'nvidia']
+        gpu_packages = ['lib32-mesa', 'lib32-nvidia-libgl', 'nvidia-libgl', 'nvidia']
     if gpu == 'nouveau':
         gpu_packages = ['lib32-mesa', 'xf86-video-nouveau']
         sudo("""sed -i '/MODULES=/s/"$/ nouveau"/' %s/etc/mkinitcpio.conf"""
