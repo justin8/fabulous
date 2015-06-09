@@ -151,16 +151,17 @@ def booleanize(value):
 
 def chroot_puppet():
     script = """#!/bin/bash
-export LANG=C
-export LC_CTYPE=C
-export LC_ALL=C
+export LANG=en_US.UTF-8
+export LC_CTYPE=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
 hostname $(cat %s/etc/hostname)
 rm -rf /etc/puppet /etc/hieradata
 git clone https://github.com/justin8/puppet /etc/puppet
 git -C /etc/puppet submodule update --init
 git clone https://github.com/justin8/hieradata /etc/hieradata
-puppet apply --modulepath=/etc/puppet/modules --test --tags os_default::misc,os_default::pacman --no-noop /etc/puppet/manifests/site.pp
-puppet apply --modulepath=/etc/puppet/modules --test --tags os_default --no-noop /etc/puppet/manifests/site.pp
+puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::misc'
+puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::package_manager'
+puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default'
 EOF""" % env.dest
     sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % env.dest + script, quiet=True)
     sudo('chmod +x %s/var/tmp/puppet.sh' % env.dest, quiet=True)
@@ -168,7 +169,7 @@ EOF""" % env.dest
     puppet = sudo('arch-chroot "%s" /var/tmp/puppet.sh' % env.dest,
                   warn_only=True, quiet=env.quiet)
     if puppet.return_code not in [0, 2]:
-        print("*****Puppet returned an error*****")
+        print("*****Puppet returned a critical error*****")
         print(puppet)
         raise RuntimeError('Puppet encountered an error during execution.'
                            ' rc=%s' % puppet.return_code)
