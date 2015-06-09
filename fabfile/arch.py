@@ -228,10 +228,10 @@ def dotfiles_install(remote):
             /var/tmp/dotfiles/install"""
     else:
         script = """#!/bin/bash
-            mount /var/cache/pacman/pkg
+            mount /var/cache/pacman/pkg || true
             git clone https://github.com/justin8/dotfiles /var/tmp/dotfiles
             /var/tmp/dotfiles/install
-            umount -l /var/cache/pacman/pkg"""
+            umount -l /var/cache/pacman/pkg || true"""
 
     sudo('echo "%s" > %s/var/tmp/dotfiles-install' % (script, env.dest))
     sudo('chmod +x %s/var/tmp/dotfiles-install' % env.dest)
