@@ -15,7 +15,7 @@ base_packages = [
     'pkgfile', 'puppet3', 'openssh', 'rsync', 'vim', 'zsh']
 base_services = ['cronie', 'puppet', 'sshd']
 gui_packages = [
-    'aspell-en', 'gdm', 'gnome', 'gnome-extra', 'terminator', 'ttf-dejavu']
+    'aspell-en', 'gdm', 'gnome', 'gnome-tweak-tool', 'terminator', 'ttf-dejavu']
 gui_services = ['gdm']
 
 
