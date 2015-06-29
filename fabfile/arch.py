@@ -299,7 +299,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
     if remote is None:
         # Auto detect if we are remote or not. Copied from facter fact
         remote = False
-        if sudo("nslookup abachi.dray.be | grep -o '192.168.1.15'") == '192.168.1.15':
+        if sudo("nslookup abachi.dray.be | grep -o '192.168.1.15'", warn_only=True) == '192.168.1.15':
             if sudo("ip route|grep default|grep -o 192.168.1.1") == '192.168.1.1':
                 remote = False
 
