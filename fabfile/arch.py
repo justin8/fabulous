@@ -110,10 +110,12 @@ def network_config(fqdn):
 
 
 def boot_loader(root_label=None, efi=True):
+    intel = not bool(sudo('grep GenuineIntel /proc/cpuinfo', warn_only=True).return_code)
     if root_label:
         if efi:
+            ucode_string = "\ninitrd   /intel-ucode.img" if intel else ''
             boot_loader_entry = """title    Arch Linux
-linux    /vmlinuz-linux
+linux    /vmlinuz-linux""" + ucode_string + """
 initrd   /initramfs-linux.img
 options  root=LABEL=%s rw
 EOF""" % root_label
@@ -127,6 +129,9 @@ EOF""" % root_label
                  ' "%s/boot/syslinux/syslinux.cfg"' % (root_label, env.dest))
             sudo('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/"'
                  ' "%s/boot/syslinux/syslinux.cfg"' % env.dest)
+            if intel:
+                sudo('sed -i "/initramfs-linux.img/s|INITRD|INITRD ../intel-ucode'
+                     '.img|" "%s/boot/syslinux/syslinux.cfg"' % env.dest)
             sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
                  % env.dest)
     sudo('arch-chroot "%s" /usr/bin/mkinitcpio -p linux' % env.dest)
