@@ -111,6 +111,8 @@ def network_config(fqdn):
 
 def boot_loader(root_label=None, efi=True):
     intel = not bool(sudo('grep GenuineIntel /proc/cpuinfo', warn_only=True).return_code)
+    if intel:
+        pacstrap(['intel-ucode'])
     if root_label:
         if efi:
             ucode_string = "\ninitrd   /intel-ucode.img" if intel else ''
