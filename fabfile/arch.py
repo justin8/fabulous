@@ -160,7 +160,7 @@ git clone https://github.com/justin8/puppet /etc/puppet
 git -C /etc/puppet submodule update --init
 git clone https://github.com/justin8/hieradata /etc/hieradata
 puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::misc'
-puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::package_manager'
+puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::os_specifics'
 puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default'
 EOF""" % env.dest
     sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % env.dest + script, quiet=True)
