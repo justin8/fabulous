@@ -164,7 +164,9 @@ export LC_ALL=en_US.UTF-8
 hostname $(cat %s/etc/hostname)
 rm -rf /etc/puppet /etc/hieradata
 git clone https://github.com/justin8/puppet /etc/puppet
-git -C /etc/puppet submodule update --init
+echo -n "Updating submodules... "
+git -C /etc/puppet submodule update --init &> /dev/null
+[[ $? == 0 ]] && echo "[ OK ]" || echo "[ FAIL ]"
 git clone https://github.com/justin8/hieradata /etc/hieradata
 puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::misc'
 puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::os_specifics'
