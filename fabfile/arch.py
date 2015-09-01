@@ -109,18 +109,22 @@ def network_config(fqdn):
     enable_services(['NetworkManager'])
 
 
-def boot_loader(root_label=None, efi=True):
+def boot_loader(root_label=None, efi=True, grsec=True):
     intel = not bool(sudo('grep GenuineIntel /proc/cpuinfo', warn_only=True).return_code)
+    grsec_string = ''
     if intel:
         pacstrap(['intel-ucode'])
+    if grsec:
+        pacstrap(['linux-grsec', 'paxd'])
+        grsec_string = '-grsec'
     if root_label:
         if efi:
             ucode_string = "\ninitrd   /intel-ucode.img" if intel else ''
             boot_loader_entry = """title    Arch Linux
-linux    /vmlinuz-linux""" + ucode_string + """
-initrd   /initramfs-linux.img
+linux    /vmlinuz-linux%s""" + ucode_string + """
+initrd   /initramfs-linux%s.img
 options  root=LABEL=%s rw
-EOF""" % root_label
+EOF""" % (grsec_string, grsec_string, root_label)
             pacstrap(['gummiboot'])
             sudo('arch-chroot %s gummiboot install' % env.dest)
             sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest +
@@ -131,12 +135,16 @@ EOF""" % root_label
                  ' "%s/boot/syslinux/syslinux.cfg"' % (root_label, env.dest))
             sudo('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/"'
                  ' "%s/boot/syslinux/syslinux.cfg"' % env.dest)
+            sudo('sed -i "s/vmlinuz-linux/vmlinuz-linux%s/"'
+                 ' "%s/boot/syslinux/syslinux.cfg"' % (grsec_string, env.dest))
+            sudo('sed -i "s/initramfs-linux/initramfs-linux%s/"'
+                 ' "%s/boot/syslinux/syslinux.cfg"' % (grsec_string, env.dest))
             if intel:
-                sudo('sed -i "/initramfs-linux.img/s|INITRD|INITRD ../intel-ucode'
-                     '.img\n    INITRD|" "%s/boot/syslinux/syslinux.cfg"' % env.dest)
+                sudo('sed -i "/initramfs-linux%s.img/s|INITRD|INITRD ../intel-ucode'
+                     '.img\n    INITRD|" "%s/boot/syslinux/syslinux.cfg"' % (grsec_string, env.dest))
             sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
                  % env.dest)
-    sudo('arch-chroot "%s" /usr/bin/mkinitcpio -p linux' % env.dest)
+    sudo('arch-chroot "%s" /usr/bin/mkinitcpio -p linux%s' % (env.dest, grsec_string))
 
 
 def booleanize(value):
@@ -268,7 +276,7 @@ def prepare_device_bios(device, shortname, boot, root):
 
 @task
 def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
-               gui=False, ssh_key=None, quiet=False, extra_packages=None,
+               gui=False, ssh_key=None, quiet=False, grsec=True extra_packages=None,
                remote=None, new_password=None):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
@@ -416,9 +424,9 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
 
         print('*** Installing boot loader...')
         if device:
-            boot_loader('%s-btrfs' % shortname, efi=efi)
+            boot_loader('%s-btrfs' % shortname, efi=efi, grsec=grsec)
         else:
-            boot_loader(efi=efi)
+            boot_loader(efi=efi, grsec=grsec)
             print("Make sure to configure the boot loader since no device was specified!")
     finally:
         if device:
