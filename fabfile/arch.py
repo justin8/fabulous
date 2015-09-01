@@ -133,7 +133,7 @@ EOF""" % root_label
                  ' "%s/boot/syslinux/syslinux.cfg"' % env.dest)
             if intel:
                 sudo('sed -i "/initramfs-linux.img/s|INITRD|INITRD ../intel-ucode'
-                     '.img|" "%s/boot/syslinux/syslinux.cfg"' % env.dest)
+                     '.img\n    INITRD|" "%s/boot/syslinux/syslinux.cfg"' % env.dest)
             sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
                  % env.dest)
     sudo('arch-chroot "%s" /usr/bin/mkinitcpio -p linux' % env.dest)
