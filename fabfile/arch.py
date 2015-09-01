@@ -125,8 +125,7 @@ linux    /vmlinuz-linux%s""" + ucode_string + """
 initrd   /initramfs-linux%s.img
 options  root=LABEL=%s rw
 EOF""" % (grsec_string, grsec_string, root_label)
-            pacstrap(['gummiboot'])
-            sudo('arch-chroot %s gummiboot install' % env.dest)
+            sudo('arch-chroot %s bootctl install' % env.dest)
             sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest +
                  boot_loader_entry)
         else:
