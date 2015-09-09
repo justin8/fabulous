@@ -105,7 +105,7 @@ def network_config(fqdn):
     enable_services(['NetworkManager'])
 
 
-def boot_loader(root_label=None, efi=True, grsec=True):
+def boot_loader(efi, grsec, root_label=None):
     intel = not bool(sudo('grep GenuineIntel /proc/cpuinfo', warn_only=True).return_code)
     grsec_string = ''
     if intel:
@@ -117,10 +117,10 @@ def boot_loader(root_label=None, efi=True, grsec=True):
         if efi:
             ucode_string = "\ninitrd   /intel-ucode.img" if intel else ''
             boot_loader_entry = """title    Arch Linux
-linux    /vmlinuz-linux%s""" + ucode_string + """
+linux    /vmlinuz-linux""" + grsec_string + ucode_string + """
 initrd   /initramfs-linux%s.img
 options  root=LABEL=%s rw
-EOF""" % (grsec_string, grsec_string, root_label)
+EOF""" % (grsec_string, root_label)
             sudo('arch-chroot %s bootctl install' % env.dest)
             sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest +
                  boot_loader_entry)
@@ -135,8 +135,8 @@ EOF""" % (grsec_string, grsec_string, root_label)
             sudo('sed -i "s/initramfs-linux/initramfs-linux%s/"'
                  ' "%s/boot/syslinux/syslinux.cfg"' % (grsec_string, env.dest))
             if intel:
-                sudo('sed -i "/initramfs-linux%s.img/s|INITRD|INITRD ../intel-ucode'
-                     '.img\n    INITRD|" "%s/boot/syslinux/syslinux.cfg"' % (grsec_string, env.dest))
+                sudo('sed -i "/initramfs-linux' + grsec_string + '.img/s|INITRD|INITRD ../intel-ucode'
+                     r'.img\n    INITRD|" "' + env.dest + '/boot/syslinux/syslinux.cfg"')
             sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
                  % env.dest)
     sudo('arch-chroot "%s" /usr/bin/mkinitcpio -p linux%s' % (env.dest, grsec_string))
@@ -271,7 +271,7 @@ def prepare_device_bios(device, shortname, boot, root):
 
 @task
 def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
-               gui=False, ssh_key=None, quiet=False, grsec=True extra_packages=None,
+               gui=False, ssh_key=None, quiet=False, grsec=True, extra_packages=None,
                remote=None, new_password=None):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
@@ -419,7 +419,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
 
         print('*** Installing boot loader...')
         if device:
-            boot_loader('%s-btrfs' % shortname, efi=efi, grsec=grsec)
+            boot_loader(efi=efi, grsec=grsec, root_label='%s-btrfs' % shortname)
         else:
             boot_loader(efi=efi, grsec=grsec)
             print("Make sure to configure the boot loader since no device was specified!")
