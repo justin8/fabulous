@@ -94,11 +94,7 @@ def gpu_install(gpu):
 
 def fstab(fqdn, device=None):
     shortname = get_shortname(fqdn)
-    sudo('mkdir -p %s/mnt/btrfs' % env.dest)
     sudo('genfstab -L "%s" > "%s/etc/fstab"' % (env.dest, env.dest))
-    if device:
-        sudo('echo "LABEL=%s-btrfs /mnt/btrfs btrfs defaults,volid=0 0 0"'
-             '>> %s/etc/fstab' % (shortname, env.dest))
 
 
 def network_config(fqdn):
