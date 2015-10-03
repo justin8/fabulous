@@ -9,6 +9,7 @@ import sys
 
 from fabric.api import env, put, sudo, task
 
+env.quiet = False
 valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
     'base', 'btrfs-progs', 'cronie', 'git', 'gptfdisk', 'networkmanager', 'nfs-utils',
@@ -158,8 +159,9 @@ def booleanize(value):
         raise TypeError("Cannot booleanize ambiguous value '%s'" % value)
 
 
-def chroot_puppet():
-    script = """#!/bin/bash
+@task
+def chroot_puppet(dest):
+    script = """#!/bin/bash -x
 export LANG=en_US.UTF-8
 export LC_CTYPE=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
@@ -170,14 +172,14 @@ echo -n "Updating submodules... "
 git -C /etc/puppet submodule update --init &> /dev/null
 [[ $? == 0 ]] && echo "[ OK ]" || echo "[ FAIL ]"
 git clone https://github.com/justin8/hieradata /etc/hieradata
-puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::misc'
 puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::os_specifics'
+puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::misc'
 puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default'
-EOF""" % env.dest
-    sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % env.dest + script, quiet=True)
-    sudo('chmod +x %s/var/tmp/puppet.sh' % env.dest, quiet=True)
+EOF""" % dest
+    sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % dest + script, quiet=True)
+    sudo('chmod +x %s/var/tmp/puppet.sh' % dest, quiet=True)
     # Set warn only as puppet uses return codes when it is successful
-    puppet = sudo('arch-chroot "%s" /var/tmp/puppet.sh' % env.dest,
+    puppet = sudo('arch-chroot "%s" /var/tmp/puppet.sh' % dest,
                   warn_only=True, quiet=env.quiet)
     if puppet.return_code not in [0, 2]:
         print("*****Puppet returned a critical error*****")
@@ -306,7 +308,7 @@ def prepare_device(device, shortname, efi):
 
 @task
 def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
-               gui=False, ssh_key=None, quiet=False, grsec=True, extra_packages=None,
+               gui=False, ssh_key=None, quiet=env.quiet, grsec=True, extra_packages=None,
                remote=None, new_password=None):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
@@ -351,7 +353,6 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
                 remote = False
 
     if device:
-        # check device exists
         if sudo('test -b %s' % device, quiet=True).return_code != 0:
             raise RuntimeError("The device specified is not a device!")
 
@@ -408,7 +409,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         set_locale()
 
         print("*** Configuring base system via puppet...")
-        chroot_puppet()
+        chroot_puppet(env.dest)
 
         if gpu:
             print('*** Installing graphics drivers...')
