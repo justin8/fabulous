@@ -250,7 +250,12 @@ def dotfiles_install(remote):
     sudo('arch-chroot "%s" /var/tmp/dotfiles-install' % env.dest)
 
 
-def prepare_device_efi(device, shortname, boot, root):
+def get_boot_and_root(device):
+    return ['%s1' % device, '%s2' % device]
+
+
+def create_efi_layout(device, shortname):
+    boot, root = get_boot_and_root(device)
     sudo('echo -e "o\ny\nn\n\n\n+200M\nef00\nn\n\n\n\n\nw\ny\n" | gdisk "%s"'
          % device, quiet=True)
     sudo('wipefs -a %s' % boot)
@@ -258,15 +263,46 @@ def prepare_device_efi(device, shortname, boot, root):
     sudo('mkfs.vfat -F32 %s -n "boot"' % boot)
 
 
-def prepare_device_bios(device, shortname, boot, root):
+def create_bios_layout(device, shortname):
     # Use parted to create a blank partition table, it correctly clears GPT
     # tables as well, unlike fdisk
+    boot, root = get_boot_and_root(device)
     sudo('parted -s %s mklabel msdos' % device)
     sudo('echo -e "n\n\n\n\n+200M\nn\n\n\n\n\nw\n" | fdisk "%s"'
          % device, quiet=True)
     sudo('wipefs -a %s' % boot)
     sudo('wipefs -a %s' % root)
     sudo('mkfs.ext4 -m 0 -L "boot" "%s"' % boot)
+
+
+def prepare_device(device, shortname, efi):
+    # TODO: unmount all partitions on the device if they are mounted
+    # Create partitions; 200M sdX1 and the rest as sdX2. Layout differs for EFI
+    if efi:
+        create_efi_layout(device, shortname)
+    else:
+        create_bios_layout(device, shortname)
+
+    boot, root = get_boot_and_root(device)
+
+    sudo('mkfs.btrfs -L "%s-btrfs" "%s"' % (shortname, root))
+    # Set up root as the default btrfs subvolume
+    try:
+        sudo('mount "%s" "%s"' % (root, env.dest))
+        sudo('btrfs subvolume create "%s/root"' % env.dest)
+        subvols = sudo('btrfs subvolume list "%s"' % env.dest, quiet=True)
+        subvolid = re.findall('ID (\d+).*level 5 path root$',
+                              subvols, re.MULTILINE)[0]
+        sudo('btrfs subvolume set-default "%s" "%s"'
+             % (subvolid, env.dest))
+        sudo('umount -l "%s"' % env.dest)
+
+        # Mount all of the things
+        sudo('mount -o relatime "%s" "%s"' % (root, env.dest))
+        sudo('mkdir "%s/boot"' % env.dest)
+        sudo('mount "%s" "%s/boot"' % (boot, env.dest))
+    except:
+        cleanup(device)
 
 
 @task
@@ -322,41 +358,14 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
 
         env.dest = sudo('mktemp -d')
 
-        # TODO: unmount all partitions on the device if they are mounted
-
-        # Create partitions; 200M sdX1 and the rest as sdX2
         print("*** Preparing device...")
-        boot = '%s1' % device
-        root = '%s2' % device
-        if efi:
-            prepare_device_efi(device, shortname, boot=boot, root=root)
-        else:
-            prepare_device_bios(device, shortname, boot=boot, root=root)
-
-        sudo('mkfs.btrfs -L "%s-btrfs" "%s"' % (shortname, root))
-
-        # Set up root as the default btrfs subvolume
-        try:
-            sudo('mount "%s" "%s"' % (root, env.dest))
-            sudo('btrfs subvolume create "%s/root"' % env.dest)
-            subvols = sudo('btrfs subvolume list "%s"' % env.dest, quiet=True)
-            subvolid = re.findall('ID (\d+).*level 5 path root$',
-                                  subvols, re.MULTILINE)[0]
-            sudo('btrfs subvolume set-default "%s" "%s"'
-                 % (subvolid, env.dest))
-            sudo('umount -l "%s"' % env.dest)
-
-            # Mount all of the things
-            sudo('mount -o relatime "%s" "%s"' % (root, env.dest))
-            sudo('mkdir "%s/boot"' % env.dest)
-            sudo('mount "%s" "%s/boot"' % (boot, env.dest))
-        except:
-            cleanup(device)
+        prepare_device(device, shortname, efi)
     elif mountpoint:
         env.dest = mountpoint
         mounts = sudo('mount', quiet=True)
         if not re.search('\s%s\s+type' % env.dest, mounts):
             raise RuntimeError("The specified mountpoint is not mounted")
+
     try:
         print('*** Enabling dray.be repo...')
         enable_dray_repo()
