@@ -105,40 +105,41 @@ def network_config(fqdn):
     enable_services(['NetworkManager'])
 
 
-def boot_loader(efi, grsec, root_label=None):
+def boot_loader(efi, grsec):
+    root_label = get_root_label()
     intel = not bool(sudo('grep GenuineIntel /proc/cpuinfo', warn_only=True).return_code)
     grsec_string = ''
+
     if intel:
         pacstrap(['intel-ucode'])
     if grsec:
         pacstrap(['linux-grsec', 'paxd'])
         grsec_string = '-grsec'
-    if root_label:
-        if efi:
-            ucode_string = "\ninitrd   /intel-ucode.img" if intel else ''
-            boot_loader_entry = """title    Arch Linux
+    if efi:
+        ucode_string = "\ninitrd   /intel-ucode.img" if intel else ''
+        boot_loader_entry = """title    Arch Linux
 linux    /vmlinuz-linux""" + grsec_string + ucode_string + """
 initrd   /initramfs-linux%s.img
 options  root=LABEL=%s rw
 EOF""" % (grsec_string, root_label)
-            sudo('arch-chroot %s bootctl install' % env.dest)
-            sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest +
-                 boot_loader_entry)
-        else:
-            pacstrap(['syslinux'])
-            sudo('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
-                 ' "%s/boot/syslinux/syslinux.cfg"' % (root_label, env.dest))
-            sudo('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/"'
-                 ' "%s/boot/syslinux/syslinux.cfg"' % env.dest)
-            sudo('sed -i "s/vmlinuz-linux/vmlinuz-linux%s/"'
-                 ' "%s/boot/syslinux/syslinux.cfg"' % (grsec_string, env.dest))
-            sudo('sed -i "s/initramfs-linux/initramfs-linux%s/"'
-                 ' "%s/boot/syslinux/syslinux.cfg"' % (grsec_string, env.dest))
-            if intel:
-                sudo('sed -i "/initramfs-linux' + grsec_string + '.img/s|INITRD|INITRD ../intel-ucode'
-                     r'.img\n    INITRD|" "' + env.dest + '/boot/syslinux/syslinux.cfg"')
-            sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
-                 % env.dest)
+        sudo('arch-chroot %s bootctl install' % env.dest)
+        sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest +
+             boot_loader_entry)
+    else:
+        pacstrap(['syslinux'])
+        sudo('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
+             ' "%s/boot/syslinux/syslinux.cfg"' % (root_label, env.dest))
+        sudo('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/"'
+             ' "%s/boot/syslinux/syslinux.cfg"' % env.dest)
+        sudo('sed -i "s/vmlinuz-linux/vmlinuz-linux%s/"'
+             ' "%s/boot/syslinux/syslinux.cfg"' % (grsec_string, env.dest))
+        sudo('sed -i "s/initramfs-linux/initramfs-linux%s/"'
+             ' "%s/boot/syslinux/syslinux.cfg"' % (grsec_string, env.dest))
+        if intel:
+            sudo('sed -i "/initramfs-linux' + grsec_string + '.img/s|INITRD|INITRD ../intel-ucode'
+                 r'.img\n    INITRD|" "' + env.dest + '/boot/syslinux/syslinux.cfg"')
+        sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
+             % env.dest)
     sudo('arch-chroot "%s" /usr/bin/mkinitcpio -p linux%s' % (env.dest, grsec_string))
 
 
@@ -249,6 +250,11 @@ def dotfiles_install(remote):
     sudo('echo "%s" > %s/var/tmp/dotfiles-install' % (script, env.dest))
     sudo('chmod +x %s/var/tmp/dotfiles-install' % env.dest)
     sudo('arch-chroot "%s" /var/tmp/dotfiles-install' % env.dest)
+
+
+def get_root_label():
+    device = sudo("mount | grep ' on %s ' | awk '{print $1}'" % env.dest, quiet=True)
+    return sudo("lsblk -o label %s | tail -n1" % device, quiet=True)
 
 
 def get_boot_and_root(device):
@@ -427,11 +433,8 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
             pacstrap(extra_packages)
 
         print('*** Installing boot loader...')
-        if device:
-            boot_loader(efi=efi, grsec=grsec, root_label='%s-btrfs' % shortname)
-        else:
-            boot_loader(efi=efi, grsec=grsec)
-            print("Make sure to configure the boot loader since no device was specified!")
+        boot_loader(efi=efi, grsec=grsec)
+
     finally:
         if device:
             cleanup(device)
