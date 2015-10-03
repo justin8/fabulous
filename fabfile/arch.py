@@ -92,8 +92,7 @@ def gpu_install(gpu):
         enable_services(['vmtoolsd', 'vmware-vmblock-fuse'])
 
 
-def fstab(fqdn, device=None):
-    shortname = get_shortname(fqdn)
+def generate_fstab(fqdn, device=None):
     sudo('genfstab -L "%s" > "%s/etc/fstab"' % (env.dest, env.dest))
 
 
@@ -403,7 +402,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         enable_services(base_services)
 
         print('*** Generating fstab...')
-        fstab(fqdn, device)
+        generate_fstab(fqdn, device)
 
         print('*** Setting initial locale...')
         set_locale()
