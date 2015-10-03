@@ -312,6 +312,10 @@ def prepare_device(device, shortname, efi):
         cleanup(device)
 
 
+def set_timezone():
+    sudo("ln -s /usr/share/zoneinfo/Australia/Brisbane %s/etc/localtime" % env.dest)
+
+
 @task
 def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
                gui=False, ssh_key=None, quiet=env.quiet, grsec=True, extra_packages=None,
@@ -413,6 +417,9 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
 
         print('*** Setting initial locale...')
         set_locale()
+
+        print('*** Setting default timezone...')
+        set_timezone()
 
         print("*** Configuring base system via puppet...")
         chroot_puppet(env.dest)
