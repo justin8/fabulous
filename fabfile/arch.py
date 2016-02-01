@@ -10,7 +10,7 @@ import sys
 from fabric.api import env, put, sudo, task
 
 env.quiet = False
-valid_gpus = ['nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
+valid_gpus = ['auto', 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
     'base', 'btrfs-progs', 'cronie', 'git', 'gptfdisk', 'networkmanager', 'nfs-utils',
     'pkgfile', 'puppet3', 'openssh', 'rsync', 'vim', 'zsh']
@@ -64,6 +64,18 @@ def enable_mdns():
     sudo('pacman -Sy --noconfirm avahi nss-mdns')
     sudo("sed -i 's/^hosts.*/hosts: files mdns_minimal [NOTFOUND=return] dns myhostname/' /etc/nsswitch.conf")
     sudo('nscd -i hosts', warn_only=True, quiet=True)
+
+
+def gpu_detect():
+    lspci = sudo('lspci|grep VGA').lower()
+    if 'intel' in lspci:
+        return 'intel'
+    if 'nvidia' in lspci:
+        return 'nvidia'
+    if 'amd' in lspci:
+        return 'amd'
+    if 'virtualbox' in lspci:
+        return 'vbox'
 
 
 def gpu_install(gpu):
@@ -313,11 +325,11 @@ def prepare_device(device, shortname, efi):
 
 
 def set_timezone():
-    sudo("ln -s /usr/share/zoneinfo/Australia/Brisbane %s/etc/localtime" % env.dest)
+    chroot('tzupdate')
 
 
 @task
-def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
+def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
                gui=False, ssh_key=None, quiet=env.quiet, grsec=True, extra_packages=None,
                remote=None, new_password=None):
     """
@@ -325,7 +337,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
     If new_password is specified it will be set as the root password on the
     machine. Otherwise a random password will be set for security purposes.
 
-    gpu: Should be one of: nvidia, nouveau, ati, intel, vbox
+    gpu: Should be one of: auto, nvidia, nouveau, ati, intel, vbox. Defaults to auto.
     gui: Will configure a basic gnome environment
     remote: Set if not building locally to abachi. Should be auto detected if not set.
     """
@@ -333,9 +345,6 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
     efi = booleanize(efi)
     gui = booleanize(gui)
     quiet = booleanize(quiet)
-
-    if gui and not gpu:
-        raise RuntimeError("You must specify a GPU if GUI is selected")
 
     env.quiet = quiet
 
@@ -348,7 +357,7 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         raise RuntimeError(
             "You must specify either a device or a mountpoint but not both")
 
-    if gpu and gpu not in valid_gpus:
+    if gpu not in valid_gpus:
         raise RuntimeError("Invalid gpu specified")
 
     if ssh_key:
@@ -424,9 +433,13 @@ def install_os(fqdn, efi=True, gpu=False, device=None, mountpoint=None,
         print("*** Configuring base system via puppet...")
         chroot_puppet(env.dest)
 
-        if gpu:
-            print('*** Installing graphics drivers...')
-            gpu_install(gpu)
+        if gpu == 'auto':
+            print('*** Detecting graphics card...')
+            gpu = gpu_detect()
+            print('*** Found {0}...'.format(gpu))
+
+        print('*** Installing graphics drivers...')
+        gpu_install(gpu)
 
         if gui:
             print('*** Installing GUI packages...')
