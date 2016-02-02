@@ -7,9 +7,8 @@ import re
 import string
 import sys
 
-from fabric.api import env, put, sudo, task
+from fabric.api import env, hide, put, sudo, task
 
-env.quiet = False
 valid_gpus = [None, 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
     'apacman', 'avahi', 'base', 'bind-tools', 'btrfs-progs', 'cronie', 'dkms',
@@ -51,21 +50,21 @@ exit 1
 EOF""".format(env.dest, ' '.join(packages))
     sudo("cat <<-'EOF' > /tmp/pacstrap.sh\n" + script, quiet=True)
     sudo('chmod +x /tmp/pacstrap.sh', quiet=True)
-    sudo('/tmp/pacstrap.sh', quiet=env.quiet)
+    return sudo('/tmp/pacstrap.sh')
 
 
-def chroot(command, warn_only=False, quiet=False):
+def chroot(command, warn_only=False, quiet=False, user=None):
     sudo("""cat <<EOF > {0}/chroot-cmd
 #!/bin/bash
 {1}
 EOF
 """.format(env.dest, command))
-    return sudo("""arch-chroot {0} bash -c 'bash /chroot-cmd && rm /chroot-cmd'""".format(env.dest, command), warn_only=warn_only, quiet=quiet)
+    return sudo("""arch-chroot {0} bash -c 'bash /chroot-cmd && rm /chroot-cmd'""".format(env.dest, command), quiet=quiet, user=user)
 
 
 def enable_multilib_repo(target):
     cmd = sudo if target is 'host' else chroot
-    if not cmd("grep -q '^\[multilib\]' /etc/pacman.conf", warn_only=True).succeeded:
+    if not cmd("grep -q '^\[multilib\]' /etc/pacman.conf", quiet=True).succeeded:
         cmd('echo [multilib] >> /etc/pacman.conf')
         cmd('echo Include = /etc/pacman.d/mirrorlist >> /etc/pacman.conf')
 
@@ -202,7 +201,7 @@ def create_cron_job(name, command, time):
 
 def enable_services(services):
     for service in services:
-        chroot("systemctl enable " + service, quiet=env.quiet)
+        chroot("systemctl enable " + service)
 
 
 def set_locale():
@@ -305,7 +304,7 @@ def install_ssh_key(keyfile, user):
         mode=0600)
 
 
-def dotfiles_install(remote):
+def dotfiles_install(remote, user):
     if remote:
         script = """#!/bin/bash
             git clone https://github.com/justin8/dotfiles /var/tmp/dotfiles
@@ -313,13 +312,14 @@ def dotfiles_install(remote):
     else:
         script = """#!/bin/bash
             mount /var/cache/pacman/pkg || :
+            sudo rm -rf /var/tmp/dotfiles
             git clone https://github.com/justin8/dotfiles /var/tmp/dotfiles
             /var/tmp/dotfiles/install
             umount -l /var/cache/pacman/pkg || :"""
 
     chroot('echo "%s" > /var/tmp/dotfiles-install' % script)
     chroot('chmod +x /var/tmp/dotfiles-install')
-    chroot('/var/tmp/dotfiles-install')
+    chroot('/var/tmp/dotfiles-install', user=user)
 
 
 def get_root_label():
@@ -367,7 +367,7 @@ def prepare_device(device, shortname, efi):
     try:
         sudo('mount "%s" "%s"' % (root, env.dest))
         sudo('btrfs subvolume create "%s/root"' % env.dest)
-        subvols = sudo('btrfs subvolume list "%s"' % env.dest, quiet=True)
+        subvols = sudo('btrfs subvolume list "%s"' % env.dest)
         subvolid = re.findall('ID (\d+).*level 5 path root$',
                               subvols, re.MULTILINE)[0]
         sudo('btrfs subvolume set-default "%s" "%s"'
@@ -397,7 +397,7 @@ def log(message):
 @task
 def install_os(fqdn, target, username=None, password=None, gui=False, kernel='lts',
                ssh_key='~/.ssh/id_rsa.pub', efi=None, gpu=None, extra_packages=None,
-               remote=None, quiet=env.quiet):
+               remote=None, verbose=False):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
 
