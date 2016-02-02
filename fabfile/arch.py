@@ -13,9 +13,9 @@ env.quiet = False
 valid_gpus = ['auto', 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
     'apacman', 'avahi', 'base', 'bind-tools', 'btrfs-progs', 'cronie', 'dkms',
-    'git', 'gptfdisk', 'haveged', 'networkmanager', 'nfs-utils', 'nscd',
-    'nss-mdns', 'ntp', 'pkgfile', 'pkgstats', 'openssh', 'rsync', 'sudo', 'tzupdate', 'vim', 'zsh']
-base_services = ['avahi', 'cronie', 'dkms', 'haveged', 'networkmanager', 'nscd', 'ntp', 'sshd']
+    'git', 'gptfdisk', 'haveged', 'networkmanager', 'nfs-utils', 'nss-mdns',
+    'ntp', 'pkgfile', 'pkgstats', 'openssh', 'rsync', 'sudo', 'tzupdate', 'vim', 'zsh']
+base_services = ['avahi-daemon', 'cronie', 'dkms', 'haveged', 'NetworkManager', 'nscd', 'ntpd', 'sshd']
 gui_packages = [
     'aspell-en', 'gdm', 'gnome', 'gnome-tweak-tool', 'terminator', 'ttf-dejavu']
 gui_services = ['gdm']
