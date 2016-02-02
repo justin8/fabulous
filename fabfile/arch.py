@@ -35,15 +35,19 @@ def pacstrap(packages):
 count=0
 while [[ $count -lt 5 ]]
 do
-    pacstrap -c "{0}" {1} | tee /tmp/out
-    if grep 'invalid or corrupted package' /tmp/out
-    then
+    pacstrap -c "{0}" {1} 2>&1| tee /tmp/out
+    rc=$?
+    if grep 'invalid or corrupted package' /tmp/out; then
         count=$((count+1))
         echo "Failed $count times!"
-    else
+    elif grep 'Failed to install packages' /tmp/out; then
+        echo "Fatal error encountered!"
         break
+    else
+        exit 0
     fi
 done
+exit 1
 EOF""".format(env.dest, ' '.join(packages))
     sudo("cat <<-'EOF' > /tmp/pacstrap.sh\n" + script, quiet=True)
     sudo('chmod +x /tmp/pacstrap.sh', quiet=True)
