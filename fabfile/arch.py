@@ -402,7 +402,13 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
     """
     device = None
     mountpoint = None
-    ssh_key = os.path.expanduser(ssh_key)
+    ssh_key_path = os.path.expanduser(ssh_key)
+
+    if ssh_key == '~/.ssh/id_rsa.pub' and not os.path.isfile(ssh_key_path):
+        log('Default SSH key %s not found. Skipping...' % ssh_key)
+        ssh_key = None
+    else:
+        ssh_key = ssh_key_path
 
     gui = booleanize(gui)
     verbose = booleanize(verbose)
@@ -420,7 +426,7 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
         if gpu not in valid_gpus:
             raise RuntimeError("Invalid gpu specified")
 
-        if not os.path.isfile(ssh_key):
+        if ssh_key and not os.path.isfile(ssh_key):
             raise RuntimeError("The specified SSH key cannot be found!")
 
         # Auto-detection
@@ -495,8 +501,9 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
             sudo('echo "root:%s" | arch-chroot "%s" chpasswd'
                  % (password, env.dest), quiet=True)
 
-            log('Installing ssh key...')
-            install_ssh_key(ssh_key, username)
+            if ssh_key:
+                log('Installing ssh key...')
+                install_ssh_key(ssh_key, username)
 
             log('Configuring network...')
             network_config(fqdn)
