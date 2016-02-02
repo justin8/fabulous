@@ -12,9 +12,9 @@ from fabric.api import env, put, sudo, task
 env.quiet = False
 valid_gpus = ['auto', 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
-    'base', 'btrfs-progs', 'cronie', 'git', 'gptfdisk', 'networkmanager', 'nfs-utils',
-    'pkgfile', 'puppet3', 'openssh', 'rsync', 'vim', 'zsh']
-base_services = ['cronie', 'puppet', 'sshd']
+    'base', 'btrfs-progs', 'cronie', 'dkms', 'git', 'gptfdisk', 'networkmanager',
+    'nfs-utils', 'pkgfile', 'puppet3', 'openssh', 'rsync', 'vim', 'zsh']
+base_services = ['cronie', 'dkms', 'puppet', 'sshd']
 gui_packages = [
     'aspell-en', 'gdm', 'gnome', 'gnome-tweak-tool', 'terminator', 'ttf-dejavu']
 gui_services = ['gdm']
@@ -80,7 +80,7 @@ def gpu_detect():
 
 def gpu_install(gpu):
     if gpu == 'nvidia':
-        gpu_packages = ['lib32-mesa', 'lib32-nvidia-libgl', 'nvidia-libgl', 'nvidia']
+        gpu_packages = ['lib32-mesa', 'lib32-nvidia-libgl', 'nvidia-libgl', 'nvidia-dkms']
     if gpu == 'nouveau':
         gpu_packages = ['lib32-mesa', 'xf86-video-nouveau']
         sudo("""sed -i '/MODULES=/s/"$/ nouveau"/' %s/etc/mkinitcpio.conf"""
@@ -90,7 +90,7 @@ def gpu_install(gpu):
     if gpu == 'intel':
         gpu_packages = ['lib32-mesa', 'xf86-video-intel']
     if gpu == 'vbox':
-        gpu_packages = ['virtualbox-guest-utils']
+        gpu_packages = ['virtualbox-guest-dkms', 'virtualbox-guest-utils']
         sudo("echo -e 'vboxguest\nvboxsf\nvboxvideo' >"
              "'%s/etc/modules-load.d/virtualbox.conf'" % env.dest)
     if gpu == 'vmware':
@@ -106,53 +106,53 @@ def gpu_install(gpu):
 
 
 def generate_fstab(fqdn, device=None):
-    sudo('genfstab -L "%s" > "%s/etc/fstab"' % (env.dest, env.dest))
+    sudo('genfstab -L "{0}" > "{0}/etc/fstab"'.format(env.dest))
 
 
 def network_config(fqdn):
     shortname = get_shortname(fqdn)
-    sudo('echo "%s" > "%s/etc/hostname"' % (shortname, env.dest))
-    sudo('echo "127.0.1.1\t%s\t%s" >> %s/etc/hosts'
-         % (fqdn, shortname, env.dest))
+    sudo('echo "{0}" > "{1}/etc/hostname"'.format(shortname, env.dest))
+    sudo('echo "127.0.1.1\t{0}\t{1}" >> {2}/etc/hosts'.format(fqdn, shortname, env.dest))
     enable_services(['NetworkManager'])
 
 
-def boot_loader(efi, grsec):
+def boot_loader(efi, kernel):
     root_label = get_root_label()
     intel = not bool(sudo('grep GenuineIntel /proc/cpuinfo', warn_only=True).return_code)
-    grsec_string = ''
+    kernel_string = 'linux'
 
     if intel:
         pacstrap(['intel-ucode'])
-    if grsec:
-        pacstrap(['linux-grsec', 'paxd'])
-        grsec_string = '-grsec'
+    if kernel:
+        pacstrap(['linux-%s' % kernel])
+        kernel_string = 'linux-%s' % kernel
+    if kernel == 'grsec':
+        pacstrap(['paxd'])
     if efi:
         ucode_string = "\ninitrd   /intel-ucode.img" if intel else ''
         boot_loader_entry = """title    Arch Linux
-linux    /vmlinuz-linux""" + grsec_string + ucode_string + """
-initrd   /initramfs-linux%s.img
-options  root=LABEL=%s rw
-EOF""" % (grsec_string, root_label)
-        sudo('arch-chroot %s bootctl install' % env.dest)
+linux    /vmlinuz-""" + kernel_string + ucode_string + """
+initrd   /initramfs-{0}.img
+options  root=LABEL={1} rw
+EOF""".format(kernel_string, root_label)
+        chroot('bootctl install')
         sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest +
              boot_loader_entry)
     else:
         pacstrap(['syslinux'])
-        sudo('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
-             ' "%s/boot/syslinux/syslinux.cfg"' % (root_label, env.dest))
+        sudo('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL={0}|g"'
+             ' "{1}/boot/syslinux/syslinux.cfg"'.format(root_label, env.dest))
         sudo('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/"'
              ' "%s/boot/syslinux/syslinux.cfg"' % env.dest)
-        sudo('sed -i "s/vmlinuz-linux/vmlinuz-linux%s/"'
-             ' "%s/boot/syslinux/syslinux.cfg"' % (grsec_string, env.dest))
-        sudo('sed -i "s/initramfs-linux/initramfs-linux%s/"'
-             ' "%s/boot/syslinux/syslinux.cfg"' % (grsec_string, env.dest))
+        sudo('sed -i "s/vmlinuz-linux/vmlinuz-{0}/"'
+             ' "{1}/boot/syslinux/syslinux.cfg"'.format(kernel_string, env.dest))
+        sudo('sed -i "s/initramfs-linux/initramfs-{0}/"'
+             ' "{1}/boot/syslinux/syslinux.cfg"'.format(kernel_string, env.dest))
         if intel:
-            sudo('sed -i "/initramfs-linux' + grsec_string + '.img/s|INITRD|INITRD ../intel-ucode'
+            sudo('sed -i "/initramfs-' + kernel_string + '.img/s|INITRD|INITRD ../intel-ucode'
                  r'.img\n    INITRD|" "' + env.dest + '/boot/syslinux/syslinux.cfg"')
-        sudo('arch-chroot "%s" /usr/bin/syslinux-install_update -iam'
-             % env.dest)
-    sudo('arch-chroot "%s" /usr/bin/mkinitcpio -p linux%s' % (env.dest, grsec_string))
+        chroot('/usr/bin/syslinux-install_update -iam')
+    chroot('/usr/bin/mkinitcpio -p %s' % kernel_string)
 
 
 def booleanize(value):
@@ -330,7 +330,7 @@ def set_timezone():
 
 @task
 def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
-               gui=False, ssh_key=None, quiet=env.quiet, grsec=True, extra_packages=None,
+               gui=False, ssh_key=None, quiet=env.quiet, kernel='lts', extra_packages=None,
                remote=None, new_password=None):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
@@ -339,6 +339,7 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
 
     gpu: Should be one of: auto, nvidia, nouveau, ati, intel, vbox. Defaults to auto.
     gui: Will configure a basic gnome environment
+    kernel: Can be 'lts', 'grsec', or other kernels in the repositories or '' for default kernel.
     remote: Set if not building locally to abachi. Should be auto detected if not set.
     """
 
@@ -453,7 +454,7 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
             pacstrap(extra_packages)
 
         print('*** Installing boot loader...')
-        boot_loader(efi=efi, grsec=grsec)
+        boot_loader(efi=efi, kernel=kernel)
 
     finally:
         if device:
