@@ -408,8 +408,9 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='lt
             vanilla kernel. (Default is lts)
     remote: Set if not building locally to abachi. Should be auto detected if not set.
     """
-    device=None
-    mountpoint=None
+    device = None
+    mountpoint = None
+    ssh_key = os.path.expanduser(ssh_key)
 
     gui = booleanize(gui)
     quiet = booleanize(quiet)
@@ -424,9 +425,8 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='lt
     if gpu not in valid_gpus:
         raise RuntimeError("Invalid gpu specified")
 
-    if ssh_key:
-        if not os.path.isfile(ssh_key):
-            raise RuntimeError("The specified SSH key cannot be found!")
+    if not os.path.isfile(ssh_key):
+        raise RuntimeError("The specified SSH key cannot be found!")
 
     # Auto-detection
     # TODO: Split in to different functions
@@ -500,9 +500,8 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='lt
         sudo('echo "root:%s" | arch-chroot "%s" chpasswd'
              % (password, env.dest), quiet=True)
 
-        if ssh_key:
-            print('*** Installing ssh key...')
-            install_ssh_key(ssh_key, username)
+        print('*** Installing ssh key...')
+        install_ssh_key(ssh_key, username)
 
         print('*** Configuring network...')
         network_config(fqdn)
