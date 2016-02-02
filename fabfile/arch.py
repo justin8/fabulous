@@ -72,8 +72,8 @@ def enable_multilib_repo(target):
 
 def enable_dray_repo(target):
     cmd = sudo if target is 'host' else chroot
-    cmd('curl -o /tmp/repo.pkg.tar.xz https://repo.dray.be/dray-repo-latest')
-    cmd('pacman -U --noconfirm /tmp/repo.pkg.tar.xz')
+    cmd('curl -o /tmp/repo.pkg.tar.xz https://repo.dray.be/dray-repo-latest && '
+        'pacman -U --noconfirm /tmp/repo.pkg.tar.xz')
 
 
 def enable_mdns(target):
