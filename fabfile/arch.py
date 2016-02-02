@@ -13,9 +13,9 @@ env.quiet = False
 valid_gpus = ['auto', 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
     'apacman', 'avahi', 'base', 'bind-tools', 'btrfs-progs', 'cronie', 'dkms',
-    'git', 'gptfdisk', 'networkmanager', 'nfs-utils', 'nss-mdns', 'pkgfile',
-    'pkgstats', 'openssh', 'rsync', 'tzupdate', 'vim', 'zsh']
-base_services = ['avahi', 'cronie', 'dkms', 'sshd']
+    'git', 'gptfdisk', 'haveged', 'networkmanager', 'nfs-utils', 'nscd',
+    'nss-mdns', 'ntp', 'pkgfile', 'pkgstats', 'openssh', 'rsync', 'sudo', 'tzupdate', 'vim', 'zsh']
+base_services = ['avahi', 'cronie', 'dkms', 'haveged', 'networkmanager', 'nscd', 'ntp', 'sshd']
 gui_packages = [
     'aspell-en', 'gdm', 'gnome', 'gnome-tweak-tool', 'terminator', 'ttf-dejavu']
 gui_services = ['gdm']
@@ -119,7 +119,6 @@ def network_config(fqdn):
     shortname = get_shortname(fqdn)
     chroot('echo "%s" > "/etc/hostname"' % shortname)
     chroot('echo "127.0.1.1\t{0}\t{1}" >> /etc/hosts'.format(fqdn, shortname))
-    enable_services(['NetworkManager'])
 
 
 def boot_loader(efi, kernel):
