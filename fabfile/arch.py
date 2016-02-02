@@ -13,7 +13,7 @@ env.quiet = False
 valid_gpus = ['auto', 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
     'base', 'btrfs-progs', 'cronie', 'dkms', 'git', 'gptfdisk', 'networkmanager',
-    'nfs-utils', 'pkgfile', 'puppet3', 'openssh', 'rsync', 'vim', 'zsh']
+    'nfs-utils', 'pkgfile', 'puppet3', 'openssh', 'rsync', 'tzupdate', 'vim', 'zsh']
 base_services = ['cronie', 'dkms', 'puppet', 'sshd']
 gui_packages = [
     'aspell-en', 'gdm', 'gnome', 'gnome-tweak-tool', 'terminator', 'ttf-dejavu']
