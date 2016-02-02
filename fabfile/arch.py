@@ -390,7 +390,7 @@ def set_timezone():
 
 
 @task
-def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None, gui=False, ssh_key=None,
+def install_os(fqdn, target, efi=None, gpu='auto', gui=False, ssh_key=None,
                quiet=env.quiet, kernel='lts', extra_packages=None, remote=None,
                username=None, password=None):
     """
@@ -399,11 +399,17 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None, gui=Fal
     If password is specified it will be set as the root password on the
     machine. Otherwise a random password will be set for security purposes.
 
-    gpu: Should be one of: auto, nvidia, nouveau, ati, intel, vbox. Defaults to auto.
-    gui: Will configure a basic gnome environment
-    kernel: Can be 'lts', 'grsec', or other kernels in the repositories or '' for default kernel.
+    If username is set, the user will be created with sudo access, and the provided
+    password will be used for the user instead of root.
+
+    gpu: Should be one of: auto, nvidia, nouveau, ati, intel, vbox. Default is auto.
+    gui: Will configure a basic gnome environment (true/false, Default is false)
+    kernel: Can be 'lts', 'grsec', or other kernels in the repositories or '' for
+            vanilla kernel. (Default is lts)
     remote: Set if not building locally to abachi. Should be auto detected if not set.
     """
+    device=None
+    mountpoint=None
 
     gui = booleanize(gui)
     quiet = booleanize(quiet)
@@ -415,16 +421,23 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None, gui=Fal
         raise RuntimeError("You must specify an fqdn!")
     shortname = get_shortname(fqdn)
 
-    if not device and not mountpoint or device and mountpoint:
-        raise RuntimeError(
-            "You must specify either a device or a mountpoint but not both")
-
     if gpu not in valid_gpus:
         raise RuntimeError("Invalid gpu specified")
 
     if ssh_key:
         if not os.path.isfile(ssh_key):
             raise RuntimeError("The specified SSH key cannot be found!")
+
+    # Auto-detection
+    # TODO: Split in to different functions
+    if sudo('test -b %s' % target, warn_only=True).succeeded:
+        device = target
+    elif sudo('test -d %s' % target, warn_only=True).succeeded:
+        if sudo('mount | grep -q %s' % target, warn_only=True).succeeded:
+            mountpoint = target
+
+    if not device and not mountpoint or device and mountpoint:
+        raise RuntimeError("Target is neither a device nor a mount point. Aborting")
 
     if remote is None:
         # Auto detect if we are remote or not. Copied from facter fact
