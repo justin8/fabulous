@@ -12,9 +12,10 @@ from fabric.api import env, put, sudo, task
 env.quiet = False
 valid_gpus = ['auto', 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
-    'base', 'btrfs-progs', 'cronie', 'dkms', 'git', 'gptfdisk', 'networkmanager',
-    'nfs-utils', 'pkgfile', 'puppet3', 'openssh', 'rsync', 'tzupdate', 'vim', 'zsh']
-base_services = ['cronie', 'dkms', 'puppet', 'sshd']
+    'apacman', 'avahi', 'base', 'bind-tools', 'btrfs-progs', 'cronie', 'dkms',
+    'git', 'gptfdisk', 'networkmanager', 'nfs-utils', 'nss-mdns', 'pkgfile',
+    'pkgstats', 'openssh', 'rsync', 'tzupdate', 'vim', 'zsh']
+base_services = ['avahi', 'cronie', 'dkms', 'sshd']
 gui_packages = [
     'aspell-en', 'gdm', 'gnome', 'gnome-tweak-tool', 'terminator', 'ttf-dejavu']
 gui_services = ['gdm']
@@ -170,6 +171,13 @@ def booleanize(value):
         return False
     else:
         raise TypeError("Cannot booleanize ambiguous value '%s'" % value)
+
+
+def create_cron_job(name, command, time):
+    if time.lower() == 'daily':
+        chroot('echo "{0}" > /etc/cron.daily/{1}'.fomrat(command, time))
+    else:
+        chroot('echo "{0} {1}" > /etc/cron.d/{2}'.format(time, command, name))
 
 
 @task
@@ -435,9 +443,6 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
 
         print('*** Setting default timezone...')
         set_timezone()
-
-        print("*** Configuring base system via puppet...")
-        chroot_puppet(env.dest)
 
         if gpu == 'auto':
             print('*** Detecting graphics card...')
