@@ -55,7 +55,12 @@ EOF""".format(env.dest, ' '.join(packages))
 
 
 def chroot(command, warn_only=False, quiet=False):
-    sudo('arch-chroot {0} "{1}"'.format(env.dest, command), warn_only=warn_only, quiet=quiet)
+    sudo("""cat <<EOF > {0}/chroot-cmd
+#!/bin/bash
+{1}
+EOF
+""".format(env.dest, command))
+    return sudo("""arch-chroot {0} bash -c 'bash /chroot-cmd && rm /chroot-cmd'""".format(env.dest, command), warn_only=warn_only, quiet=quiet)
 
 
 def enable_multilib_repo(target):
