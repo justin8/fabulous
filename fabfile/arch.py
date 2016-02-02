@@ -77,7 +77,7 @@ def enable_dray_repo(target):
 
 def enable_mdns(target):
     cmd = sudo if target is 'host' else chroot
-    cmd('pacman -Sy --noconfirm avahi nss-mdns')
+    cmd('pacman -Sy --noconfirm --needed avahi nss-mdns')
     cmd("sed -i 's/^hosts.*/hosts: files mdns_minimal [NOTFOUND=return] dns myhostname/' /etc/nsswitch.conf")
     cmd('nscd -i hosts', warn_only=True, quiet=True)
 
@@ -95,6 +95,10 @@ def gpu_detect():
 
 
 def gpu_install(gpu):
+    gpu = gpu_detect(gpu)
+    log('Found {0} GPU...'.format(gpu))
+    log('Installing graphics drivers...')
+
     if gpu == 'nvidia':
         gpu_packages = ['lib32-mesa', 'lib32-nvidia-libgl', 'nvidia-libgl', 'nvidia-dkms']
     if gpu == 'nouveau':
@@ -304,24 +308,6 @@ def install_ssh_key(keyfile, user):
         mode=0600)
 
 
-def dotfiles_install(remote, user):
-    if remote:
-        script = """#!/bin/bash
-            git clone https://github.com/justin8/dotfiles /var/tmp/dotfiles
-            /var/tmp/dotfiles/install"""
-    else:
-        script = """#!/bin/bash
-            mount /var/cache/pacman/pkg || :
-            sudo rm -rf /var/tmp/dotfiles
-            git clone https://github.com/justin8/dotfiles /var/tmp/dotfiles
-            /var/tmp/dotfiles/install
-            umount -l /var/cache/pacman/pkg || :"""
-
-    chroot('echo "%s" > /var/tmp/dotfiles-install' % script)
-    chroot('chmod +x /var/tmp/dotfiles-install')
-    chroot('/var/tmp/dotfiles-install', user=user)
-
-
 def get_root_label():
     device = sudo("mount | grep ' on %s ' | awk '{print $1}'" % env.dest, quiet=True)
     return sudo("lsblk -o label %s | tail -n1" % device, quiet=True)
@@ -395,7 +381,7 @@ def log(message):
 
 
 @task
-def install_os(fqdn, target, username=None, password=None, gui=False, kernel='lts',
+def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
                ssh_key='~/.ssh/id_rsa.pub', efi=None, gpu=None, extra_packages=None,
                remote=None, verbose=False):
     """
@@ -409,8 +395,7 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='lt
 
     gpu: Should be one of: auto, nvidia, nouveau, ati, intel, vbox. Default is auto.
     gui: Will configure a basic gnome environment (true/false, Default is false)
-    kernel: Can be 'lts', 'grsec', or other kernels in the repositories or '' for
-            vanilla kernel. (Default is lts)
+    kernel: Can be 'lts', 'grsec', or other kernels in the repositories. Default is vanilla.
     remote: Set if not building locally to abachi. Should be auto detected if not set.
     """
     device = None
@@ -539,26 +524,12 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='lt
             log('Setting default timezone...')
             set_timezone()
 
-            if gpu is None:
-                log('Detecting graphics card...')
-                gpu = gpu_detect()
-                log('Found {0} GPU...'.format(gpu))
-
-            log('Installing graphics drivers...')
-            gpu_install(gpu)
-
             if gui:
+                gpu_install(gpu)
                 gui_install()
 
             log('Configuring settings...')
             configure_settings()
-
-            log('Installing root dotfiles configuration...')
-            dotfiles_install(remote, 'root')
-
-            if username is not 'root':
-                log('Installing user dotfiles configuration...')
-                dotfiles_install(remote, username)
 
             if extra_packages:
                 log('Installing additional packages...')
