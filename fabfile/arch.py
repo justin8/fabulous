@@ -295,11 +295,12 @@ def cleanup(device):
     sudo('rmdir %s' % env.dest)
 
 
-def install_ssh_key(keyfile):
-    chroot('mkdir /root/.ssh', quiet=True)
-    chroot('chmod 700 /root/.ssh', quiet=True)
+def install_ssh_key(keyfile, user):
+    home = chroot('getent passwd %s|cut -d: -f6' % user)
+    chroot('mkdir %s/.ssh' % home, quiet=True)
+    chroot('chmod 700 %s/.ssh' % home, quiet=True)
     put(local_path=keyfile,
-        remote_path='/root/.ssh/authorized_keys',
+        remote_path='%s/.ssh/authorized_keys' % home,
         use_sudo=True,
         mode=0600)
 
@@ -389,12 +390,13 @@ def set_timezone():
 
 
 @task
-def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
-               gui=False, ssh_key=None, quiet=env.quiet, kernel='lts', extra_packages=None,
-               remote=None, new_password=None):
+def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None, gui=False, ssh_key=None,
+               quiet=env.quiet, kernel='lts', extra_packages=None, remote=None,
+               username=None, password=None):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
-    If new_password is specified it will be set as the root password on the
+    
+    If password is specified it will be set as the root password on the
     machine. Otherwise a random password will be set for security purposes.
 
     gpu: Should be one of: auto, nvidia, nouveau, ati, intel, vbox. Defaults to auto.
@@ -472,15 +474,22 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
         print('*** Installing base OS...')
         pacstrap(base_packages)
 
-        if not new_password:
-            new_password = generate_password(16)
-        print('*** Setting root password...')
+        if not password:
+            password = generate_password(16)
+
+        if username:
+            print('*** Creating user %s...' % username)
+            chroot('useradd -m %s -G wheel' % username)
+        else:
+            username = 'root'
+
+        print('*** Setting %s account password...' % username)
         sudo('echo "root:%s" | arch-chroot "%s" chpasswd'
-             % (new_password, env.dest), quiet=True)
+             % (password, env.dest), quiet=True)
 
         if ssh_key:
             print('*** Installing ssh key...')
-            install_ssh_key(ssh_key)
+            install_ssh_key(ssh_key, username)
 
         print('*** Configuring network...')
         network_config(fqdn)
