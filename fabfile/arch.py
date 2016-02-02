@@ -64,10 +64,11 @@ def enable_dray_repo():
     sudo('pacman -U --noconfirm /tmp/repo.pkg.tar.xz')
 
 
-def enable_mdns():
-    sudo('pacman -Sy --noconfirm avahi nss-mdns')
-    sudo("sed -i 's/^hosts.*/hosts: files mdns_minimal [NOTFOUND=return] dns myhostname/' /etc/nsswitch.conf")
-    sudo('nscd -i hosts', warn_only=True, quiet=True)
+def enable_mdns(target):
+    cmd = sudo if target is 'host' else chroot
+    cmd('pacman -Sy --noconfirm avahi nss-mdns')
+    cmd("sed -i 's/^hosts.*/hosts: files mdns_minimal [NOTFOUND=return] dns myhostname/' /etc/nsswitch.conf")
+    cmd('nscd -i hosts', warn_only=True, quiet=True)
 
 
 def gpu_detect():
@@ -380,7 +381,7 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
 
         env.dest = sudo('mktemp -d')
 
-        print("*** Preparing device...")
+        print('*** Preparing device...')
         prepare_device(device, shortname, efi)
     elif mountpoint:
         env.dest = mountpoint
@@ -395,8 +396,8 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
         print('*** Enabling multilib repo...')
         enable_multilib_repo()
 
-        print('*** Enabling mDNS...')
-        enable_mdns()
+        print('*** Enabling mDNS during install...')
+        enable_mdns('host')
 
         if not remote:
             print('*** Mounting package cache...')
@@ -405,7 +406,7 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
                 print("Failed to mount package cache. Aborting")
                 sys.exit(1)
 
-        print("*** Installing base OS...")
+        print('*** Installing base OS...')
         pacstrap(base_packages)
 
         if not new_password:
@@ -415,19 +416,26 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
              % (new_password, env.dest), quiet=True)
 
         if ssh_key:
-            print("*** Installing ssh key...")
+            print('*** Installing ssh key...')
             install_ssh_key(ssh_key)
 
-        print("*** Configuring network...")
+        print('*** Configuring network...')
         network_config(fqdn)
 
-        print("*** Configuring base system services...")
+        print('*** Configuring mDNS...')
+        enable_mdns('chroot')
+
+        print('*** Configuring base system services...')
         enable_services(base_services)
 
         print('*** Generating fstab...')
         generate_fstab(fqdn, device)
 
-        print('*** Setting initial locale...')
+        print('*** Setting up cron jobs...')
+        create_cron_job('create-package-list', 'pacman -Qe > /etc/package-list', time='daily')
+        create_cron_job('udpate-pkgfile', 'pkgfile -u &>/dev/null', time='daily')
+
+        print('*** Setting default locale...')
         set_locale()
 
         print('*** Setting default timezone...')
@@ -448,11 +456,11 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
             print('*** Installing GUI packages...')
             gui_install()
 
-        print("*** Installing root dotfiles configuration...")
+        print('*** Installing root dotfiles configuration...')
         dotfiles_install(remote)
 
         if extra_packages:
-            print("*** Installing additional packages...")
+            print('*** Installing additional packages...')
             pacstrap(extra_packages)
 
         print('*** Installing boot loader...')
