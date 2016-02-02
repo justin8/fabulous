@@ -82,7 +82,9 @@ def enable_mdns(target):
     cmd('nscd -i hosts', warn_only=True, quiet=True)
 
 
-def gpu_detect():
+def gpu_detect(gpu):
+    if gpu:
+        return gpu
     lspci = sudo('lspci|grep VGA').lower()
     if 'intel' in lspci:
         return 'intel'
