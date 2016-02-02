@@ -373,6 +373,9 @@ def prepare_device(device, shortname, efi):
 
 
 def set_timezone():
+    # temporarily install this until fixed upstream. Should just need tzupdate call
+    pacstrap(['python-setuptools'])
+    chroot('touch /etc/localtime')
     chroot('tzupdate')
 
 
