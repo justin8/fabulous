@@ -49,6 +49,10 @@ EOF""".format(env.dest, ' '.join(packages))
     sudo('/tmp/pacstrap.sh', quiet=env.quiet)
 
 
+def chroot(command, warn_only=False, quiet=False):
+    sudo('arch-chroot {0} "{1}"'.format(env.dest, command), warn_only=warn_only, quiet=quiet)
+
+
 def enable_multilib_repo():
     if not sudo("grep -q '^\[multilib\]' /etc/pacman.conf", warn_only=True).succeeded:
         sudo('echo [multilib] >> /etc/pacman.conf')
@@ -192,8 +196,7 @@ EOF""" % dest
     sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % dest + script, quiet=True)
     sudo('chmod +x %s/var/tmp/puppet.sh' % dest, quiet=True)
     # Set warn only as puppet uses return codes when it is successful
-    puppet = sudo('arch-chroot "%s" /var/tmp/puppet.sh' % dest,
-                  warn_only=True, quiet=env.quiet)
+    puppet = chroot('/var/tmp/puppet.sh', warn_only=True, quiet=env.quiet)
     if puppet.return_code not in [0, 2]:
         print("*****Puppet returned a critical error*****")
         print(puppet)
@@ -203,14 +206,13 @@ EOF""" % dest
 
 def enable_services(services):
     for service in services:
-        sudo("arch-chroot %s systemctl enable %s"
-             % (env.dest, service), quiet=env.quiet)
+        chroot("systemctl enable " + service, quiet=env.quiet)
 
 
 def set_locale():
     sudo('echo LANG=en_AU.utf8 > /etc/locale.conf')
     sudo('echo "en_AU.UTF-8 UTF-8" > /etc/locale.gen')
-    sudo('arch-chroot %s locale-gen' % env.dest)
+    chroot('locale-gen')
 
 
 def gui_install():
@@ -261,7 +263,7 @@ def dotfiles_install(remote):
 
     sudo('echo "%s" > %s/var/tmp/dotfiles-install' % (script, env.dest))
     sudo('chmod +x %s/var/tmp/dotfiles-install' % env.dest)
-    sudo('arch-chroot "%s" /var/tmp/dotfiles-install' % env.dest)
+    chroot('/var/tmp/dotfiles-install')
 
 
 def get_root_label():
