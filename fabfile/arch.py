@@ -54,15 +54,17 @@ def chroot(command, warn_only=False, quiet=False):
     sudo('arch-chroot {0} "{1}"'.format(env.dest, command), warn_only=warn_only, quiet=quiet)
 
 
-def enable_multilib_repo():
-    if not sudo("grep -q '^\[multilib\]' /etc/pacman.conf", warn_only=True).succeeded:
-        sudo('echo [multilib] >> /etc/pacman.conf')
-        sudo('echo Include = /etc/pacman.d/mirrorlist >> /etc/pacman.conf')
+def enable_multilib_repo(target):
+    cmd = sudo if target is 'host' else chroot
+    if not cmd("grep -q '^\[multilib\]' /etc/pacman.conf", warn_only=True).succeeded:
+        cmd('echo [multilib] >> /etc/pacman.conf')
+        cmd('echo Include = /etc/pacman.d/mirrorlist >> /etc/pacman.conf')
 
 
-def enable_dray_repo():
-    sudo('curl -o /tmp/repo.pkg.tar.xz https://repo.dray.be/dray-repo-latest')
-    sudo('pacman -U --noconfirm /tmp/repo.pkg.tar.xz')
+def enable_dray_repo(target):
+    cmd = sudo if target is 'host' else chroot
+    cmd('curl -o /tmp/repo.pkg.tar.xz https://repo.dray.be/dray-repo-latest')
+    cmd('pacman -U --noconfirm /tmp/repo.pkg.tar.xz')
 
 
 def enable_mdns(target):
@@ -393,11 +395,11 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
             raise RuntimeError("The specified mountpoint is not mounted")
 
     try:
-        print('*** Enabling dray.be repo...')
-        enable_dray_repo()
+        print('*** Enabling dray.be repo during install...')
+        enable_dray_repo('host')
 
-        print('*** Enabling multilib repo...')
-        enable_multilib_repo()
+        print('*** Enabling multilib repo during install...')
+        enable_multilib_repo('host')
 
         print('*** Enabling mDNS during install...')
         enable_mdns('host')
@@ -427,6 +429,12 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
 
         print('*** Configuring mDNS...')
         enable_mdns('chroot')
+
+        print('*** Enabling dray.be repo...')
+        enable_dray_repo('chroot')
+
+        print('*** Enabling multilib repo...')
+        enable_multilib_repo('chroot')
 
         print('*** Configuring base system services...')
         enable_services(base_services)
