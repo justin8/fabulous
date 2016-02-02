@@ -130,8 +130,34 @@ def network_config(fqdn):
     chroot('echo "127.0.1.1\t{0}\t{1}" >> /etc/hosts'.format(fqdn, shortname))
 
 
-def boot_loader(efi, kernel):
+def install_efi_bootloader(kernel_string, intel):
     root_label = get_root_label()
+    ucode_string = "\ninitrd   /intel-ucode.img" if intel else ''
+    boot_loader_entry = """title    Arch Linux
+linux    /vmlinuz-""" + kernel_string + ucode_string + """
+initrd   /initramfs-{0}.img
+options  root=LABEL={1} rw
+EOF""".format(kernel_string, root_label)
+    chroot('bootctl install')
+    chroot("cat <<-EOF > /boot/loader/entries/arch.conf\n" +
+           boot_loader_entry)
+
+
+def install_mbr_bootloader(kernel_string, intel):
+    root_label = get_root_label()
+    pacstrap(['syslinux'])
+    chroot('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
+           ' /boot/syslinux/syslinux.cfg' % root_label)
+    chroot('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/" /boot/syslinux/syslinux.cfg')
+    chroot('sed -i "s/vmlinuz-linux/vmlinuz-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
+    chroot('sed -i "s/initramfs-linux/initramfs-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
+    if intel:
+        chroot('sed -i "/initramfs-' + kernel_string + '.img/s|INITRD|INITRD ../intel-ucode'
+               r'.img\n    INITRD|" /boot/syslinux/syslinux.cfg')
+    chroot('/usr/bin/syslinux-install_update -iam')
+
+
+def boot_loader(efi, kernel):
     intel = not bool(sudo('grep GenuineIntel /proc/cpuinfo', warn_only=True).return_code)
     kernel_string = 'linux'
 
@@ -144,26 +170,9 @@ def boot_loader(efi, kernel):
         pacstrap(['paxd'])
         set_sysctl('kernel.grsecurity.enforce_symlinksifowner', '0')
     if efi:
-        ucode_string = "\ninitrd   /intel-ucode.img" if intel else ''
-        boot_loader_entry = """title    Arch Linux
-linux    /vmlinuz-""" + kernel_string + ucode_string + """
-initrd   /initramfs-{0}.img
-options  root=LABEL={1} rw
-EOF""".format(kernel_string, root_label)
-        chroot('bootctl install')
-        chroot("cat <<-EOF > /boot/loader/entries/arch.conf\n" +
-               boot_loader_entry)
+        install_efi_bootloader(kernel_string, intel)
     else:
-        pacstrap(['syslinux'])
-        chroot('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
-               ' /boot/syslinux/syslinux.cfg' % root_label)
-        chroot('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/" /boot/syslinux/syslinux.cfg')
-        chroot('sed -i "s/vmlinuz-linux/vmlinuz-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
-        chroot('sed -i "s/initramfs-linux/initramfs-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
-        if intel:
-            chroot('sed -i "/initramfs-' + kernel_string + '.img/s|INITRD|INITRD ../intel-ucode'
-                   r'.img\n    INITRD|" /boot/syslinux/syslinux.cfg')
-        chroot('/usr/bin/syslinux-install_update -iam')
+        install_mbr_bootloader(kernel_string, intel)
     chroot('/usr/bin/mkinitcpio -p %s' % kernel_string)
 
 
@@ -394,7 +403,6 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
     remote: Set if not building locally to abachi. Should be auto detected if not set.
     """
 
-    efi = booleanize(efi)
     gui = booleanize(gui)
     quiet = booleanize(quiet)
 
@@ -422,6 +430,13 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
         if sudo("nslookup abachi.dray.be | grep -o '192.168.1.15'", warn_only=True) == '192.168.1.15':
             if sudo("ip route|grep default|grep -o 192.168.1.1") == '192.168.1.1':
                 remote = False
+
+    if efi is None:
+        if sudo('efibootmgr &>/dev/null', warn_only=True).succeeded:
+            efi = True
+        else:
+            efi = False
+    efi = booleanize(efi)
 
     if device:
         if sudo('test -b %s' % device, quiet=True).return_code != 0:
