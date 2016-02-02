@@ -390,12 +390,12 @@ def set_timezone():
 
 
 @task
-def install_os(fqdn, target, efi=None, gpu='auto', gui=False, ssh_key=None,
-               quiet=env.quiet, kernel='lts', extra_packages=None, remote=None,
-               username=None, password=None):
+def install_os(fqdn, target, username=None, password=None, gui=False, kernel='lts',
+               ssh_key='~/.ssh/id_rsa.pub', efi=None, gpu=None, extra_packages=None,
+               remote=None, quiet=env.quiet):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
-    
+
     If password is specified it will be set as the root password on the
     machine. Otherwise a random password will be set for security purposes.
 
