@@ -10,7 +10,7 @@ import sys
 from fabric.api import env, put, sudo, task
 
 env.quiet = False
-valid_gpus = ['auto', 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
+valid_gpus = [None, 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
     'apacman', 'avahi', 'base', 'bind-tools', 'btrfs-progs', 'cronie', 'dkms',
     'git', 'gptfdisk', 'haveged', 'networkmanager', 'nfs-utils', 'nss-mdns',
@@ -532,7 +532,7 @@ def install_os(fqdn, target, efi=None, gpu='auto', gui=False, ssh_key=None,
         print('*** Setting default timezone...')
         set_timezone()
 
-        if gpu == 'auto':
+        if gpu is None:
             print('*** Detecting graphics card...')
             gpu = gpu_detect()
             print('*** Found {0}...'.format(gpu))
