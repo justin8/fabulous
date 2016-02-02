@@ -182,34 +182,6 @@ def create_cron_job(name, command, time):
         chroot('echo "{0} {1}" > /etc/cron.d/{2}'.format(time, command, name))
 
 
-@task
-def chroot_puppet(dest):
-    script = """#!/bin/bash -x
-export LANG=en_US.UTF-8
-export LC_CTYPE=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
-hostname $(cat %s/etc/hostname)
-rm -rf /etc/puppet /etc/hieradata
-git clone https://github.com/justin8/puppet /etc/puppet
-echo -n "Updating submodules... "
-git -C /etc/puppet submodule update --init &> /dev/null
-[[ $? == 0 ]] && echo "[ OK ]" || echo "[ FAIL ]"
-git clone https://github.com/justin8/hieradata /etc/hieradata
-puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::os_specifics'
-puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default::misc'
-puppet apply --modulepath=/etc/puppet/modules --test -e 'include os_default'
-EOF""" % dest
-    sudo("cat <<-EOF > %s/var/tmp/puppet.sh\n" % dest + script, quiet=True)
-    sudo('chmod +x %s/var/tmp/puppet.sh' % dest, quiet=True)
-    # Set warn only as puppet uses return codes when it is successful
-    puppet = chroot('/var/tmp/puppet.sh', warn_only=True, quiet=env.quiet)
-    if puppet.return_code not in [0, 2]:
-        print("*****Puppet returned a critical error*****")
-        print(puppet)
-        raise RuntimeError('Puppet encountered an error during execution.'
-                           ' rc=%s' % puppet.return_code)
-
-
 def enable_services(services):
     for service in services:
         chroot("systemctl enable " + service, quiet=env.quiet)
