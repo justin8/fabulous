@@ -186,7 +186,7 @@ def booleanize(value):
 
 def create_cron_job(name, command, time):
     if time.lower() == 'daily':
-        chroot('echo "{0}" > /etc/cron.daily/{1}'.fomrat(command, time))
+        chroot('echo "{0}" > /etc/cron.daily/{1}'.format(command, time))
     else:
         chroot('echo "{0} {1}" > /etc/cron.d/{2}'.format(time, command, name))
 
@@ -240,7 +240,7 @@ SystemMaxUse=256M"""
 
 def enable_wol():
     command = 'ACTION=="add", SUBSYSTEM=="net", KERNEL=="eth*", RUN+="/usr/bin/ethtool -s %k wol g"'
-    chroot("echo '%s' > /etc/udev/ruls.d/50-wol.rules" % command)
+    chroot("echo '%s' > /etc/udev/rules.d/50-wol.rules" % command)
 
 
 def set_sysctl(key, value):
