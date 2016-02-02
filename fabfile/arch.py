@@ -143,17 +143,17 @@ options  root=LABEL={1} rw
 EOF""".format(kernel_string, root_label)
         chroot('bootctl install')
         chroot("cat <<-EOF > /boot/loader/entries/arch.conf\n" +
-             boot_loader_entry)
+               boot_loader_entry)
     else:
         pacstrap(['syslinux'])
         chroot('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
-             ' /boot/syslinux/syslinux.cfg' %s root_label)
+               ' /boot/syslinux/syslinux.cfg' % root_label)
         chroot('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/" /boot/syslinux/syslinux.cfg')
         chroot('sed -i "s/vmlinuz-linux/vmlinuz-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
         chroot('sed -i "s/initramfs-linux/initramfs-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
         if intel:
             chroot('sed -i "/initramfs-' + kernel_string + '.img/s|INITRD|INITRD ../intel-ucode'
-                 r'.img\n    INITRD|" /boot/syslinux/syslinux.cfg')
+                   r'.img\n    INITRD|" /boot/syslinux/syslinux.cfg')
         chroot('/usr/bin/syslinux-install_update -iam')
     chroot('/usr/bin/mkinitcpio -p %s' % kernel_string)
 
