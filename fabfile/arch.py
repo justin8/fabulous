@@ -34,7 +34,7 @@ def pacstrap(packages):
 count=0
 while [[ $count -lt 5 ]]
 do
-    pacstrap -c "%s" %s | tee /tmp/out
+    pacstrap -c "{0}" {1} | tee /tmp/out
     if grep 'invalid or corrupted package' /tmp/out
     then
         count=$((count+1))
@@ -43,7 +43,7 @@ do
         break
     fi
 done
-EOF""" % (env.dest, ' '.join(packages))
+EOF""".format(env.dest, ' '.join(packages))
     sudo("cat <<-'EOF' > /tmp/pacstrap.sh\n" + script, quiet=True)
     sudo('chmod +x /tmp/pacstrap.sh', quiet=True)
     sudo('/tmp/pacstrap.sh', quiet=env.quiet)
