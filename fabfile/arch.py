@@ -1,6 +1,6 @@
-
 from __future__ import print_function
 
+from datetime import datetime
 import os
 import random
 import re
@@ -212,10 +212,10 @@ def set_locale():
 
 
 def gui_install():
-    print('*** Installing GUI packages...')
+    log('Installing GUI packages...')
     pacstrap(gui_packages)
 
-    print('*** Enabling GUI services...')
+    log('Enabling GUI services...')
     enable_services(gui_services)
 
 
@@ -287,12 +287,12 @@ def get_shortname(fqdn):
 
 
 def cleanup(device):
-    print('*** Cleaning up...')
-    while sudo('umount -l %s1' % device, warn_only=True).return_code == 0:
+    log('Cleaning up...')
+    while sudo('umount -l %s1' % device, warn_only=True, quiet=True).return_code == 0:
         pass
-    while sudo('umount -l %s2' % device, warn_only=True).return_code == 0:
+    while sudo('umount -l %s2' % device, warn_only=True, quiet=True).return_code == 0:
         pass
-    sudo('rmdir %s' % env.dest)
+    sudo('rmdir %s' % env.dest, quiet=True)
 
 
 def install_ssh_key(keyfile, user):
@@ -389,6 +389,11 @@ def set_timezone():
     chroot('tzupdate')
 
 
+def log(message):
+    time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print("*** {0} *** {1}".format(time, message))
+
+
 @task
 def install_os(fqdn, target, username=None, password=None, gui=False, kernel='lts',
                ssh_key='~/.ssh/id_rsa.pub', efi=None, gpu=None, extra_packages=None,
@@ -413,159 +418,157 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='lt
     ssh_key = os.path.expanduser(ssh_key)
 
     gui = booleanize(gui)
-    quiet = booleanize(quiet)
+    verbose = booleanize(verbose)
+    hide_settings = ['running', 'output']
 
-    env.quiet = quiet
+    if verbose:
+        hide_settings = []
 
-    # Sanity checks
-    if not fqdn:
-        raise RuntimeError("You must specify an fqdn!")
-    shortname = get_shortname(fqdn)
+    with hide(*hide_settings):
+        # Sanity checks
+        if not fqdn:
+            raise RuntimeError("You must specify an fqdn!")
+        shortname = get_shortname(fqdn)
 
-    if gpu not in valid_gpus:
-        raise RuntimeError("Invalid gpu specified")
+        if gpu not in valid_gpus:
+            raise RuntimeError("Invalid gpu specified")
 
-    if not os.path.isfile(ssh_key):
-        raise RuntimeError("The specified SSH key cannot be found!")
+        if not os.path.isfile(ssh_key):
+            raise RuntimeError("The specified SSH key cannot be found!")
 
-    # Auto-detection
-    # TODO: Split in to different functions
-    if sudo('test -b %s' % target, warn_only=True).succeeded:
-        device = target
-    elif sudo('test -d %s' % target, warn_only=True).succeeded:
-        if sudo('mount | grep -q %s' % target, warn_only=True).succeeded:
-            mountpoint = target
+        # Auto-detection
+        # TODO: Split in to different functions
+        if sudo('test -b %s' % target, quiet=True).succeeded:
+            device = target
+        elif sudo('test -d %s' % target, quiet=True).succeeded:
+            if sudo('mount | grep -q %s' % target, quiet=True).succeeded:
+                mountpoint = target
 
-    if not device and not mountpoint or device and mountpoint:
-        raise RuntimeError("Target is neither a device nor a mount point. Aborting")
+        if not device and not mountpoint or device and mountpoint:
+            raise RuntimeError("Target is neither a device nor a mount point. Aborting")
 
-    if remote is None:
-        # Auto detect if we are remote or not. Copied from facter fact
-        remote = True
-        if sudo("nslookup abachi.dray.be | grep -o '192.168.1.15'", warn_only=True) == '192.168.1.15':
-            if sudo("ip route|grep default|grep -o 192.168.1.1") == '192.168.1.1':
-                remote = False
+        if remote is None:
+            # Auto detect if we are remote or not. Copied from facter fact
+            remote = True
+            if sudo("nslookup abachi.dray.be | grep -o '192.168.1.15'", quiet=True) == '192.168.1.15':
+                if sudo("ip route|grep default|grep -o 192.168.1.1", quiet=True) == '192.168.1.1':
+                    remote = False
 
-    if efi is None:
-        if sudo('efibootmgr &>/dev/null', warn_only=True).succeeded:
-            efi = True
-        else:
-            efi = False
-    efi = booleanize(efi)
+        if efi is None:
+            if sudo('efibootmgr &>/dev/null', quiet=True).succeeded:
+                efi = True
+            else:
+                efi = False
+        efi = booleanize(efi)
 
-    if device:
-        if sudo('test -b %s' % device, quiet=True).return_code != 0:
-            raise RuntimeError("The device specified is not a device!")
-
-        env.dest = sudo('mktemp -d')
-
-        print('*** Preparing device...')
-        prepare_device(device, shortname, efi)
-    elif mountpoint:
-        env.dest = mountpoint
-        mounts = sudo('mount', quiet=True)
-        if not re.search('\s%s\s+type' % env.dest, mounts):
-            raise RuntimeError("The specified mountpoint is not mounted")
-
-    try:
-        print('*** Enabling dray.be repo during install...')
-        enable_dray_repo('host')
-
-        print('*** Enabling multilib repo during install...')
-        enable_multilib_repo('host')
-
-        print('*** Enabling mDNS during install...')
-        enable_mdns('host')
-
-        if not remote:
-            print('*** Mounting package cache...')
-            out = sudo('mount -t nfs abachi.local:/pacman /var/cache/pacman/pkg', warn_only=True)
-            if out.return_code not in {32, 0}:
-                print("Failed to mount package cache. Aborting")
-                sys.exit(1)
-
-        print('*** Installing base OS...')
-        pacstrap(base_packages)
-
-        if not password:
-            password = generate_password(16)
-
-        if username:
-            print('*** Creating user %s...' % username)
-            chroot('useradd -m %s -G wheel' % username)
-        else:
-            username = 'root'
-
-        print('*** Setting %s account password...' % username)
-        sudo('echo "root:%s" | arch-chroot "%s" chpasswd'
-             % (password, env.dest), quiet=True)
-
-        print('*** Installing ssh key...')
-        install_ssh_key(ssh_key, username)
-
-        print('*** Configuring network...')
-        network_config(fqdn)
-
-        print('*** Configuring mDNS...')
-        enable_mdns('chroot')
-
-        print('*** Enabling dray.be repo...')
-        enable_dray_repo('chroot')
-
-        print('*** Enabling multilib repo...')
-        enable_multilib_repo('chroot')
-
-        print('*** Configuring base system services...')
-        enable_services(base_services)
-
-        print('*** Generating fstab...')
-        generate_fstab(fqdn, device)
-
-        print('*** Setting up cron jobs...')
-        create_cron_job('create-package-list', 'pacman -Qe > /etc/package-list', time='daily')
-        create_cron_job('udpate-pkgfile', 'pkgfile -u &>/dev/null', time='daily')
-
-        print('*** Setting default locale...')
-        set_locale()
-
-        print('*** Setting default timezone...')
-        set_timezone()
-
-        if gpu is None:
-            print('*** Detecting graphics card...')
-            gpu = gpu_detect()
-            print('*** Found {0}...'.format(gpu))
-
-        print('*** Installing graphics drivers...')
-        gpu_install(gpu)
-
-        if gui:
-            print('*** Installing GUI packages...')
-            gui_install()
-
-        print('*** Configuring settings...')
-        configure_settings()
-
-        print('*** Installing root dotfiles configuration...')
-        dotfiles_install(remote)
-
-        if extra_packages:
-            print('*** Installing additional packages...')
-            pacstrap(extra_packages)
-
-        print('*** Installing boot loader...')
-        boot_loader(efi=efi, kernel=kernel)
-
-        print("""
-##############################################################
-##############################################################
-#
-#    SUCCESS!
-#
-##############################################################
-##############################################################
-""")
-
-    finally:
         if device:
-            cleanup(device)
+            if sudo('test -b %s' % device, quiet=True).return_code != 0:
+                raise RuntimeError("The device specified is not a device!")
+
+            env.dest = sudo('mktemp -d', quiet=True)
+
+            log('Preparing device...')
+            prepare_device(device, shortname, efi)
+        elif mountpoint:
+            env.dest = mountpoint
+            mounts = sudo('mount', quiet=True)
+            if not re.search('\s%s\s+type' % env.dest, mounts):
+                raise RuntimeError("The specified mountpoint is not mounted")
+
+        try:
+            log('Enabling dray.be repo during install...')
+            enable_dray_repo('host')
+
+            log('Enabling multilib repo during install...')
+            enable_multilib_repo('host')
+
+            log('Enabling mDNS during install...')
+            enable_mdns('host')
+
+            if not remote:
+                log('Mounting package cache...')
+                out = sudo('mount -t nfs abachi.local:/pacman /var/cache/pacman/pkg', quiet=True)
+                if out.return_code not in {32, 0}:
+                    print("Failed to mount package cache. Aborting")
+                    sys.exit(1)
+
+            log('Installing base OS (may take a few minutes)...')
+            pacstrap(base_packages)
+
+            if not password:
+                password = generate_password(16)
+
+            if username:
+                log('Creating user %s...' % username)
+                chroot('useradd -m %s -G wheel' % username)
+            else:
+                username = 'root'
+
+            log('Setting %s account password...' % username)
+            sudo('echo "root:%s" | arch-chroot "%s" chpasswd'
+                 % (password, env.dest), quiet=True)
+
+            log('Installing ssh key...')
+            install_ssh_key(ssh_key, username)
+
+            log('Configuring network...')
+            network_config(fqdn)
+
+            log('Configuring mDNS...')
+            enable_mdns('chroot')
+
+            log('Enabling dray.be repo...')
+            enable_dray_repo('chroot')
+
+            log('Enabling multilib repo...')
+            enable_multilib_repo('chroot')
+
+            log('Configuring base system services...')
+            enable_services(base_services)
+
+            log('Generating fstab...')
+            generate_fstab(fqdn, device)
+
+            log('Setting up cron jobs...')
+            create_cron_job('create-package-list', 'pacman -Qe > /etc/package-list', time='daily')
+            create_cron_job('udpate-pkgfile', 'pkgfile -u &>/dev/null', time='daily')
+
+            log('Setting default locale...')
+            set_locale()
+
+            log('Setting default timezone...')
+            set_timezone()
+
+            if gpu is None:
+                log('Detecting graphics card...')
+                gpu = gpu_detect()
+                log('Found {0} GPU...'.format(gpu))
+
+            log('Installing graphics drivers...')
+            gpu_install(gpu)
+
+            if gui:
+                gui_install()
+
+            log('Configuring settings...')
+            configure_settings()
+
+            log('Installing root dotfiles configuration...')
+            dotfiles_install(remote, 'root')
+
+            if username is not 'root':
+                log('Installing user dotfiles configuration...')
+                dotfiles_install(remote, username)
+
+            if extra_packages:
+                log('Installing additional packages...')
+                pacstrap(extra_packages)
+
+            log('Installing boot loader...')
+            boot_loader(efi=efi, kernel=kernel)
+
+            log('Success!')
+
+        finally:
+            if device:
+                cleanup(device)
