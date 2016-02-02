@@ -133,6 +133,7 @@ def boot_loader(efi, kernel):
         kernel_string = 'linux-%s' % kernel
     if kernel == 'grsec':
         pacstrap(['paxd'])
+        set_sysctl('kernel.grsecurity.enforce_symlinksifowner', '0')
     if efi:
         ucode_string = "\ninitrd   /intel-ucode.img" if intel else ''
         boot_loader_entry = """title    Arch Linux
@@ -224,8 +225,67 @@ def gui_install():
     print('*** Installing GUI packages...')
     pacstrap(gui_packages)
 
-    print('*** Configuring GUI services...')
+    print('*** Enabling GUI services...')
     enable_services(gui_services)
+
+
+def pam_config():
+    login = """#%PAM-1.0
+
+    auth       required     pam_securetty.so
+    auth       requisite    pam_nologin.so
+    auth       include      system-local-login
+    auth       optional     pam_gnome_keyring.so
+    account    include      system-local-login
+    session    include      system-local-login
+    session    optional     pam_gnome_keyring.so        auto_start
+    """
+    passwd = """#%PAM-1.0
+    #password   required    pam_cracklib.so difok=2 minlen=8 dcredit=2 ocredit=2 retry=3
+    #password   required    pam_unix.so sha512 shadow use_authtok
+    password    required    pam_unix.so sha512 shadow nullok
+    password    optional    pam_gnome_keyring.so
+    """
+    chroot('echo "%s" > /etc/pam.d/passwd' % passwd)
+    chroot('echo "%s" > /etc/pam.d/login' % login)
+
+
+def journald_config():
+    config = """SyncIntervalSec=5m
+Compress=yes
+SystemMaxUse=256M"""
+    chroot("echo '%s' >> /etc/systemd/journald.conf" % config)
+
+
+def enable_wol():
+    command = 'ACTION=="add", SUBSYSTEM=="net", KERNEL=="eth*", RUN+="/usr/bin/ethtool -s %k wol g"'
+    chroot("echo '%s' > /etc/udev/ruls.d/50-wol.rules" % command)
+
+
+def set_sysctl(key, value):
+    chroot("echo '{0} = {1}' > /etc/sysctl.d/{0}.conf".format(key, value))
+
+
+def sysctl_config():
+    sysctl = {}
+    sysctl['vm.dirty_bytes'] = '50331648'
+    sysctl['vm.dirty_background_bytes'] = '16777216'
+    sysctl['vm.vfs_cache_pressure'] = '50'
+    for key, value in sysctl.iteritems():
+        set_sysctl(key, value)
+
+
+def configure_sudo():
+    chroot("groupadd -f wheel")
+    chroot("""echo 'Defaults env_keep += "ZDOTDIR"' >> /etc/sudoers""")
+    chroot("""echo 'Defaults env_keep += "SSH_TTY"' >> /etc/sudoers""")
+    chroot("echo '%wheel ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/wheel")
+
+
+def configure_settings():
+    journald_config()
+    pam_config()
+    enable_wol()
 
 
 def get_shortname(fqdn):
@@ -462,6 +522,9 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
         if gui:
             print('*** Installing GUI packages...')
             gui_install()
+
+        print('*** Configuring settings...')
+        configure_settings()
 
         print('*** Installing root dotfiles configuration...')
         dotfiles_install(remote)
