@@ -520,6 +520,16 @@ def install_os(fqdn, efi=True, gpu='auto', device=None, mountpoint=None,
         print('*** Installing boot loader...')
         boot_loader(efi=efi, kernel=kernel)
 
+        print("""
+##############################################################
+##############################################################
+#
+#    SUCCESS!
+#
+##############################################################
+##############################################################
+""")
+
     finally:
         if device:
             cleanup(device)
