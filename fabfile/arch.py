@@ -88,21 +88,19 @@ def gpu_install(gpu):
         gpu_packages = ['lib32-mesa', 'lib32-nvidia-libgl', 'nvidia-libgl', 'nvidia-dkms']
     if gpu == 'nouveau':
         gpu_packages = ['lib32-mesa', 'xf86-video-nouveau']
-        sudo("""sed -i '/MODULES=/s/"$/ nouveau"/' %s/etc/mkinitcpio.conf"""
-             % env.dest)
+        chroot("""sed -i '/MODULES=/s/"$/ nouveau"/' /etc/mkinitcpio.conf""")
     if gpu == 'amd':
         gpu_packages = ['lib32-mesa', 'xf86-video-ati', 'mesa-libgl', 'lib32-mesa-libgl', 'mesa-vdpau', 'lib32-mesa-vdpau']
     if gpu == 'intel':
         gpu_packages = ['lib32-mesa', 'xf86-video-intel']
     if gpu == 'vbox':
         gpu_packages = ['virtualbox-guest-dkms', 'virtualbox-guest-utils']
-        sudo("echo -e 'vboxguest\nvboxsf\nvboxvideo' >"
-             "'%s/etc/modules-load.d/virtualbox.conf'" % env.dest)
+        chroot("echo -e 'vboxguest\nvboxsf\nvboxvideo' > /etc/modules-load.d/virtualbox.conf")
     if gpu == 'vmware':
         gpu_packages = ['open-vm-tools', 'xf86-input-vmmouse', 'xf86-video-vmware']
-        sudo("""sed -i 's/MODULES="/MODULES="vmhgfs /' %s/etc/mkinitcpio.conf""" % env.dest)
-        sudo("echo 'cat /proc/version > /etc/arch-release' > %s/etc/cron.daily/vmware-version-update" % env.dest)
-        sudo("chmod +x %s/etc/cron.daily/vmware-version-update" % env.dest)
+        chroot("""sed -i 's/MODULES="/MODULES="vmhgfs /' /etc/mkinitcpio.conf""")
+        chroot("echo 'cat /proc/version > /etc/arch-release' > /etc/cron.daily/vmware-version-update")
+        chroot("chmod +x /etc/cron.daily/vmware-version-update")
 
     pacstrap(gpu_packages)
 
@@ -116,8 +114,8 @@ def generate_fstab(fqdn, device=None):
 
 def network_config(fqdn):
     shortname = get_shortname(fqdn)
-    sudo('echo "{0}" > "{1}/etc/hostname"'.format(shortname, env.dest))
-    sudo('echo "127.0.1.1\t{0}\t{1}" >> {2}/etc/hosts'.format(fqdn, shortname, env.dest))
+    chroot('echo "%s" > "/etc/hostname"' % shortname)
+    chroot('echo "127.0.1.1\t{0}\t{1}" >> /etc/hosts'.format(fqdn, shortname))
     enable_services(['NetworkManager'])
 
 
@@ -141,21 +139,18 @@ initrd   /initramfs-{0}.img
 options  root=LABEL={1} rw
 EOF""".format(kernel_string, root_label)
         chroot('bootctl install')
-        sudo("cat <<-EOF > %s/boot/loader/entries/arch.conf\n" % env.dest +
+        chroot("cat <<-EOF > /boot/loader/entries/arch.conf\n" +
              boot_loader_entry)
     else:
         pacstrap(['syslinux'])
-        sudo('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL={0}|g"'
-             ' "{1}/boot/syslinux/syslinux.cfg"'.format(root_label, env.dest))
-        sudo('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/"'
-             ' "%s/boot/syslinux/syslinux.cfg"' % env.dest)
-        sudo('sed -i "s/vmlinuz-linux/vmlinuz-{0}/"'
-             ' "{1}/boot/syslinux/syslinux.cfg"'.format(kernel_string, env.dest))
-        sudo('sed -i "s/initramfs-linux/initramfs-{0}/"'
-             ' "{1}/boot/syslinux/syslinux.cfg"'.format(kernel_string, env.dest))
+        chroot('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
+             ' /boot/syslinux/syslinux.cfg' %s root_label)
+        chroot('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/" /boot/syslinux/syslinux.cfg')
+        chroot('sed -i "s/vmlinuz-linux/vmlinuz-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
+        chroot('sed -i "s/initramfs-linux/initramfs-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
         if intel:
-            sudo('sed -i "/initramfs-' + kernel_string + '.img/s|INITRD|INITRD ../intel-ucode'
-                 r'.img\n    INITRD|" "' + env.dest + '/boot/syslinux/syslinux.cfg"')
+            chroot('sed -i "/initramfs-' + kernel_string + '.img/s|INITRD|INITRD ../intel-ucode'
+                 r'.img\n    INITRD|" /boot/syslinux/syslinux.cfg')
         chroot('/usr/bin/syslinux-install_update -iam')
     chroot('/usr/bin/mkinitcpio -p %s' % kernel_string)
 
@@ -242,10 +237,10 @@ def cleanup(device):
 
 
 def install_ssh_key(keyfile):
-    sudo('mkdir %s/root/.ssh' % env.dest, quiet=True)
-    sudo('chmod 700 %s/root/.ssh' % env.host, quiet=True)
+    chroot('mkdir /root/.ssh', quiet=True)
+    chroot('chmod 700 /root/.ssh', quiet=True)
     put(local_path=keyfile,
-        remote_path='%s/root/.ssh/authorized_keys' % env.dest,
+        remote_path='/root/.ssh/authorized_keys',
         use_sudo=True,
         mode=0600)
 
@@ -257,13 +252,13 @@ def dotfiles_install(remote):
             /var/tmp/dotfiles/install"""
     else:
         script = """#!/bin/bash
-            mount /var/cache/pacman/pkg || true
+            mount /var/cache/pacman/pkg || :
             git clone https://github.com/justin8/dotfiles /var/tmp/dotfiles
             /var/tmp/dotfiles/install
-            umount -l /var/cache/pacman/pkg || true"""
+            umount -l /var/cache/pacman/pkg || :"""
 
-    sudo('echo "%s" > %s/var/tmp/dotfiles-install' % (script, env.dest))
-    sudo('chmod +x %s/var/tmp/dotfiles-install' % env.dest)
+    chroot('echo "%s" > /var/tmp/dotfiles-install' % script)
+    chroot('chmod +x /var/tmp/dotfiles-install')
     chroot('/var/tmp/dotfiles-install')
 
 
