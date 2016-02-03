@@ -17,7 +17,7 @@ base_packages = [
     'ntp', 'pkgfile', 'pkgstats', 'openssh', 'rsync', 'sudo', 'tzupdate', 'vim', 'zsh']
 base_services = ['avahi-daemon', 'cronie', 'dkms', 'haveged', 'NetworkManager', 'nscd', 'ntpd', 'sshd']
 gui_packages = [
-    'aspell-en', 'gdm', 'gnome', 'gnome-tweak-tool', 'terminator', 'ttf-dejavu']
+    'aspell-en', 'gdm', 'gnome', 'gnome-packagekit', 'gnome-tweak-tool', 'terminator', 'ttf-dejavu']
 gui_services = ['gdm']
 
 
@@ -493,6 +493,9 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
 
             log('Installing base OS (may take a few minutes)...')
             pacstrap(base_packages)
+
+            log('Configuring sudo...')
+            configure_sudo()
 
             if not password:
                 password = generate_password(16)
