@@ -504,8 +504,7 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
                 username = 'root'
 
             log('Setting %s account password...' % username)
-            sudo('echo "root:%s" | arch-chroot "%s" chpasswd'
-                 % (password, env.dest), quiet=True)
+            chroot("echo '{0}:{1}' | chpasswd".format(username, password))
 
             if ssh_key:
                 log('Installing ssh key...')
