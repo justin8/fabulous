@@ -305,12 +305,14 @@ def cleanup(device):
 
 def install_ssh_key(keyfile, user):
     home = chroot('getent passwd %s|cut -d: -f6' % user)
-    chroot('mkdir %s/.ssh' % home, quiet=True)
+    chroot('mkdir -p %s/.ssh' % home, user=user)
     chroot('chmod 700 %s/.ssh' % home, quiet=True)
+    chroot('chown {0} {1}/.ssh'.format(user, home))
     put(local_path=keyfile,
-        remote_path='%s/.ssh/authorized_keys' % home,
+        remote_path='{0}/{1}/.ssh/authorized_keys'.format(env.dest, home),
         use_sudo=True,
         mode=0600)
+    chroot('chown -R {0}. {1}/.ssh'.format(user, home))
 
 
 def get_root_label():
