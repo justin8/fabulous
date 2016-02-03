@@ -1,3 +1,4 @@
+# TODO: Add bootup splash screen
 from __future__ import print_function
 
 from datetime import datetime
@@ -48,7 +49,7 @@ do
 done
 exit 1
 EOF""".format(env.dest, ' '.join(packages))
-    sudo("cat <<-'EOF' > /tmp/pacstrap.sh\n" + script, quiet=True)
+    sudo("cat <<-'EOF' > /tmp/pacstrap.sh\n" + script)
     sudo('chmod +x /tmp/pacstrap.sh', quiet=True)
     return sudo('/tmp/pacstrap.sh')
 
@@ -82,7 +83,7 @@ def enable_mdns(target):
     cmd = sudo if target is 'host' else chroot
     cmd('pacman -Sy --noconfirm --needed avahi nss-mdns')
     cmd("sed -i 's/^hosts.*/hosts: files mdns_minimal [NOTFOUND=return] dns myhostname/' /etc/nsswitch.conf")
-    cmd('nscd -i hosts', warn_only=True, quiet=True)
+    cmd('nscd -i hosts', quiet=True)
 
 
 def gpu_detect(gpu):
@@ -296,9 +297,9 @@ def get_shortname(fqdn):
 
 def cleanup(device):
     log('Cleaning up...')
-    while sudo('umount -l %s1' % device, warn_only=True, quiet=True).return_code == 0:
+    while sudo('umount -l %s1' % device, quiet=True).return_code == 0:
         pass
-    while sudo('umount -l %s2' % device, warn_only=True, quiet=True).return_code == 0:
+    while sudo('umount -l %s2' % device, quiet=True).return_code == 0:
         pass
     sudo('rmdir %s' % env.dest, quiet=True)
 
