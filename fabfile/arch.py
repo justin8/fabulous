@@ -12,12 +12,12 @@ from fabric.api import env, hide, put, sudo, task
 
 valid_gpus = [None, 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
-    'apacman', 'avahi', 'base', 'bind-tools', 'btrfs-progs', 'cronie', 'dkms',
+    'apacman', 'avahi', 'bind-tools', 'btrfs-progs', 'cronie', 'dkms',
     'git', 'gptfdisk', 'haveged', 'networkmanager', 'nfs-utils', 'nss-mdns',
     'ntp', 'pkgfile', 'pkgstats', 'openssh', 'rsync', 'sudo', 'tzupdate', 'vim', 'zsh']
 base_services = ['avahi-daemon', 'cronie', 'dkms', 'haveged', 'NetworkManager', 'nscd', 'ntpd', 'sshd']
 gui_packages = [
-    'aspell-en', 'gdm', 'gnome', 'gnome-packagekit', 'gnome-tweak-tool', 'terminator', 'ttf-dejavu']
+    'aspell-en', 'file-roller', 'gdm', 'gnome', 'gnome-packagekit', 'gnome-tweak-tool', 'terminator']
 gui_services = ['gdm']
 
 
@@ -27,15 +27,21 @@ def generate_password(length):
     return "".join(lst)
 
 
-def pacstrap(packages):
+def pacman(packages, pacstrap=False):
     """
-    Accepts a list of packages to be installed to env.dest.
+    Accepts a list of packages to be installed to env.dest via pacman
+    in the chroot. Requires a base install to have been completed, but
+    caches to disk instead of tmpfs.
     """
+    script_name = '/var/tmp/pacman.sh'
+    command = 'pacman -Sy --noconfirm --force'
+    if pacstrap:
+        command = 'pacstrap -c %s' % env.dest
     script = """#!/bin/bash
 count=0
 while [[ $count -lt 5 ]]
 do
-    pacstrap -c "{0}" {1} 2>&1| tee /tmp/out
+    {0} {1} 2>&1| tee /tmp/out
     rc=$?
     if grep 'invalid or corrupted package' /tmp/out; then
         count=$((count+1))
@@ -48,10 +54,11 @@ do
     fi
 done
 exit 1
-EOF""".format(env.dest, ' '.join(packages))
-    sudo("cat <<-'EOF' > /tmp/pacstrap.sh\n" + script)
-    sudo('chmod +x /tmp/pacstrap.sh', quiet=True)
-    return sudo('/tmp/pacstrap.sh')
+EOF""".format(command, ' '.join(packages))
+    path = '' if pacstrap else env.dest
+    sudo("cat <<-'EOF' > %s%s\n" % (path, script_name) + script)
+    sudo('chmod +x %s/%s' % (path, script_name), quiet=True)
+    return sudo(script_name) if pacstrap else chroot(script_name)
 
 
 def chroot(command, warn_only=False, quiet=False, user=None):
@@ -123,7 +130,7 @@ def gpu_install(gpu):
         chroot("echo 'cat /proc/version > /etc/arch-release' > /etc/cron.daily/vmware-version-update")
         chroot("chmod +x /etc/cron.daily/vmware-version-update")
 
-    pacstrap(gpu_packages)
+    pacman(gpu_packages)
 
     if gpu == 'vmware':
         enable_services(['vmtoolsd', 'vmware-vmblock-fuse'])
@@ -154,7 +161,7 @@ EOF""".format(kernel_string, root_label)
 
 def install_mbr_bootloader(kernel_string, intel):
     root_label = get_root_label()
-    pacstrap(['syslinux'])
+    pacman(['syslinux'])
     chroot('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
            ' /boot/syslinux/syslinux.cfg' % root_label)
     chroot('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/" /boot/syslinux/syslinux.cfg')
@@ -171,12 +178,12 @@ def boot_loader(efi, kernel):
     kernel_string = 'linux'
 
     if intel:
-        pacstrap(['intel-ucode'])
+        pacman(['intel-ucode'])
     if kernel:
-        pacstrap(['linux-%s' % kernel])
+        pacman(['linux-%s' % kernel])
         kernel_string = 'linux-%s' % kernel
     if kernel == 'grsec':
-        pacstrap(['paxd'])
+        pacman(['paxd'])
         set_sysctl('kernel.grsecurity.enforce_symlinksifowner', '0')
     if efi:
         install_efi_bootloader(kernel_string, intel)
@@ -241,7 +248,7 @@ EOF"""
 
 def gui_install():
     log('Installing GUI packages...')
-    pacstrap(gui_packages)
+    pacman(gui_packages)
 
     log('Enabling GUI services...')
     enable_services(gui_services)
@@ -399,7 +406,7 @@ def prepare_device(device, shortname, efi):
 
 def set_timezone():
     # temporarily install this until fixed upstream. Should just need tzupdate call
-    pacstrap(['python-setuptools'])
+    pacman(['python-setuptools'])
     chroot('touch /etc/localtime')
     chroot('tzupdate')
 
@@ -513,7 +520,23 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
                     sys.exit(1)
 
             log('Installing base OS (may take a few minutes)...')
-            pacstrap(base_packages)
+            pacman(['base'], pacstrap=True)
+
+            if not remote:
+                log('Mounting package cache in chroot...')
+                out = sudo('mount -t nfs abachi.local:/pacman %s/var/cache/pacman/pkg' % env.dest, quiet=True)
+                if out.return_code not in {32, 0}:
+                    print("Failed to mount package cache. Aborting")
+                    sys.exit(1)
+
+            log('Enabling dray.be repo...')
+            enable_dray_repo('chroot')
+
+            log('Enabling multilib repo...')
+            enable_multilib_repo('chroot')
+
+            log('Installing additional base packages (may take a few minutes)...')
+            pacman(base_packages)
 
             log('Configuring sudo...')
             configure_sudo()
@@ -540,12 +563,6 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
             log('Configuring mDNS...')
             enable_mdns('chroot')
 
-            log('Enabling dray.be repo...')
-            enable_dray_repo('chroot')
-
-            log('Enabling multilib repo...')
-            enable_multilib_repo('chroot')
-
             log('Configuring base system services...')
             enable_services(base_services)
 
@@ -571,7 +588,7 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
 
             if extra_packages:
                 log('Installing additional packages...')
-                pacstrap(extra_packages)
+                pacman(extra_packages)
 
             log('Installing boot loader...')
             boot_loader(efi=efi, kernel=kernel)
