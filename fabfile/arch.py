@@ -220,6 +220,25 @@ def set_locale():
     chroot('locale-gen')
 
 
+def install_infinality():
+    repo = """
+
+[infinality-bundle]
+Server = http://bohoomil.com/repo/$(uname -m)
+
+[infinality-bundle-multilib]
+Server = http://bohoomil.com/repo/multilib/$(uname -m)
+
+[infinality-bundle-fonts]
+Server = http://bohoomil.com/repo/fonts
+EOF"""
+    chroot('cat <<EOF >> /etc/pacman.conf\n' + repo)
+    chroot('pacman-key -r 962DDE58')
+    chroot('pacman-key --lsign-key 962DDE58')
+    chroot('pacman -Sy')
+    chroot('yes|pacman -Sy freetype2-infinality-ultimate cairo-infinality-ultimate fontconfig-infinality-ultimate ibfonts-meta-extended')
+
+
 def gui_install():
     log('Installing GUI packages...')
     pacstrap(gui_packages)
@@ -227,6 +246,8 @@ def gui_install():
     log('Enabling GUI services...')
     enable_services(gui_services)
 
+    log('Installing infinality...')
+    install_infinality()
 
 def pam_config():
     login = """#%PAM-1.0
