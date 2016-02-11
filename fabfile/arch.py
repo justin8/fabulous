@@ -544,14 +544,19 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
             if not password:
                 password = generate_password(16)
 
+            root_password = password
+
             if username:
                 log('Creating user %s...' % username)
                 chroot('useradd -m %s -G wheel' % username)
+                log('Setting %s account password...' % username)
+                chroot("echo '{0}:{1}' | chpasswd".format(username, password))
+                root_password = generate_password(16)
             else:
                 username = 'root'
 
-            log('Setting %s account password...' % username)
-            chroot("echo '{0}:{1}' | chpasswd".format(username, password))
+            log('Setting root password...')
+            chroot("echo 'root:{0}' | chpasswd".format(root_password))
 
             if ssh_key:
                 log('Installing ssh key...')
