@@ -1,4 +1,5 @@
 # TODO: Add bootup splash screen
+# TODO: Support install without my repo?
 from __future__ import print_function
 
 from datetime import datetime
