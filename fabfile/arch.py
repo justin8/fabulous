@@ -65,12 +65,12 @@ def chroot(command, warn_only=False, quiet=False, user=None):
     sudo_cmd = ''
     if user:
         sudo_cmd = 'sudo -u %s' % user
-    sudo("""cat <<EOF > {0}/chroot-cmd
+    sudo("""cat <<CHROOTEOF > {0}/var/tmp/chroot-cmd
 #!/bin/bash -ex
 {1} {2}
-EOF
+CHROOTEOF
 """.format(env.dest, sudo_cmd, command))
-    return sudo("""arch-chroot {0} bash -c 'bash /chroot-cmd && rm /chroot-cmd'""".format(env.dest, command), quiet=quiet)
+    return sudo("""arch-chroot {0} bash -c 'bash /var/tmp/chroot-cmd && rm /var/tmp/chroot-cmd'""".format(env.dest, command), quiet=quiet)
 
 
 def enable_multilib_repo(target):
