@@ -223,8 +223,10 @@ def enable_services(services):
 
 
 def set_locale():
-    sudo('echo LANG=en_AU.utf8 > /etc/locale.conf')
-    sudo('echo "en_AU.UTF-8 UTF-8" > /etc/locale.gen')
+    chroot('echo LANG=en_AU.utf8 > /etc/locale.conf')
+    chroot('echo "en_AU.UTF-8 UTF-8" >> /etc/locale.gen')
+    chroot('echo "en_GB.UTF-8 UTF-8" >> /etc/locale.gen')
+    chroot('echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen')
     chroot('locale-gen')
 
 
