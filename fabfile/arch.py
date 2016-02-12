@@ -135,6 +135,8 @@ def gpu_install(gpu):
 
     if gpu == 'vmware':
         enable_services(['vmtoolsd', 'vmware-vmblock-fuse'])
+    if gpu == 'vbox':
+        enable_services(['vboxservice'])
 
 
 def generate_fstab(fqdn, device=None):
