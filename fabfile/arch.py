@@ -185,7 +185,7 @@ def boot_loader(efi, kernel):
     if intel:
         pacman(['intel-ucode'])
     if kernel:
-        pacman(['linux-%s' % kernel])
+        pacman(['linux-%s' % kernel, 'linux-%s-headers' % kernel])
         kernel_string = 'linux-%s' % kernel
     if kernel == 'grsec':
         pacman(['paxd'])
