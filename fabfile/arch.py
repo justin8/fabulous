@@ -194,6 +194,7 @@ def boot_loader(efi, kernel):
         install_efi_bootloader(kernel_string, intel)
     else:
         install_mbr_bootloader(kernel_string, intel)
+    chroot('touch /etc/os-release') # Fix for missing os-release sometimes?
     chroot('/usr/bin/mkinitcpio -p %s' % kernel_string)
 
 
