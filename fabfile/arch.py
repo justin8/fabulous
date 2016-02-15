@@ -169,7 +169,7 @@ def install_mbr_bootloader(kernel_string, intel):
     pacman(['syslinux'])
     chroot('sed -i "s|APPEND root=/dev/sda3|APPEND root=LABEL=%s|g"'
            ' /boot/syslinux/syslinux.cfg' % root_label)
-    chroot('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 10/" /boot/syslinux/syslinux.cfg')
+    chroot('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 1/" /boot/syslinux/syslinux.cfg')
     chroot('sed -i "s/vmlinuz-linux/vmlinuz-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
     chroot('sed -i "s/initramfs-linux/initramfs-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
     if intel:
