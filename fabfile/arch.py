@@ -14,11 +14,11 @@ from fabric.api import env, hide, put, sudo, task
 valid_gpus = [None, 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
     'apacman', 'avahi', 'bind-tools', 'btrfs-progs', 'cronie', 'dkms',
-    'git', 'gptfdisk', 'haveged', 'networkmanager', 'nfs-utils', 'nss-mdns',
+    'git', 'gptfdisk', 'haveged', 'linux-headers', 'networkmanager', 'nfs-utils', 'nss-mdns',
     'ntp', 'pkgfile', 'pkgstats', 'openssh', 'rsync', 'sudo', 'tzupdate', 'vim', 'zsh']
 base_services = ['avahi-daemon', 'cronie', 'dkms', 'haveged', 'NetworkManager', 'nscd', 'ntpd', 'sshd']
 gui_packages = [
-    'aspell-en', 'file-roller', 'gdm', 'gnome', 'gnome-packagekit', 'gnome-tweak-tool', 'terminator']
+    'aspell-en', 'file-roller', 'gdm-plymouth', 'gnome', 'gnome-packagekit', 'gnome-tweak-tool', 'terminator']
 gui_services = ['gdm']
 
 
@@ -263,6 +263,16 @@ def gui_install():
 
     log('Installing infinality...')
     install_infinality()
+
+    log('Installing plymouth...')
+    install_plymouth()
+
+
+def install_plymouth():
+    chroot('sed -i "/HOOKS/s/udev/udev plymouth/" /etc/mkinitcpio.conf')
+    pacman(['plymouth-theme-arch-glow'])
+    chroot('sed -i "s/Theme=/Theme=arch-glow/" /etc/plymouth/plymouthd.conf')
+
 
 def pam_config():
     login = """#%PAM-1.0
