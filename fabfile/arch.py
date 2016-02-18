@@ -163,7 +163,7 @@ def install_efi_bootloader(kernel_string, intel):
     boot_loader_entry = """title    Arch Linux
 linux    /vmlinuz-""" + kernel_string + ucode_string + """
 initrd   /initramfs-{0}.img
-options  root=LABEL={1} rw
+options  root=LABEL={1} rw quiet splash
 EOF""".format(kernel_string, root_label)
     chroot('bootctl install')
     chroot("cat <<-EOF > /boot/loader/entries/arch.conf\n" +
@@ -178,6 +178,7 @@ def install_mbr_bootloader(kernel_string, intel):
     chroot('sed -i "/TIMEOUT/s/^.*$/TIMEOUT 1/" /boot/syslinux/syslinux.cfg')
     chroot('sed -i "s/vmlinuz-linux/vmlinuz-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
     chroot('sed -i "s/initramfs-linux/initramfs-%s/" /boot/syslinux/syslinux.cfg' % kernel_string)
+    chroot("sed -i '/APPEND/s/$/ quiet splash/' /boot/syslinux/syslinux.cfg")
     if intel:
         chroot('sed -i "/initramfs-' + kernel_string + '.img/s|INITRD|INITRD ../intel-ucode'
                r'.img\n    INITRD|" /boot/syslinux/syslinux.cfg')
