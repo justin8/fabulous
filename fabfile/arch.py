@@ -278,7 +278,8 @@ def gui_install():
 def install_plymouth():
     chroot('sed -i "/HOOKS/s/udev/udev plymouth/" /etc/mkinitcpio.conf')
     pacman(['plymouth-theme-arch-glow'])
-    chroot('sed -i "s/Theme=/Theme=arch-glow/" /etc/plymouth/plymouthd.conf')
+    chroot('sed -i "s/Theme=.*/Theme=arch-glow/" /etc/plymouth/plymouthd.conf')
+    chroot('sed -i "s/ShowDelay=.*/ShowDelay=1/" /etc/plymouth/plymouthd.conf')
 
 
 def pam_config():
