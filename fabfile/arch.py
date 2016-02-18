@@ -122,15 +122,16 @@ def gpu_install(gpu):
         gpu_packages = ['lib32-mesa', 'lib32-nvidia-libgl', 'nvidia-libgl', 'nvidia-dkms']
     if gpu == 'nouveau':
         gpu_packages = ['lib32-mesa', 'xf86-video-nouveau']
-        chroot("""sed -i 's/MODULES=/MODULES=nouveau /' /etc/mkinitcpio.conf""")
+        chroot("""sed -i 's/MODULES="/MODULES="nouveau /' /etc/mkinitcpio.conf""")
     if gpu == 'amd':
         gpu_packages = ['lib32-mesa', 'xf86-video-ati', 'mesa-libgl', 'lib32-mesa-libgl', 'mesa-vdpau', 'lib32-mesa-vdpau']
-        chroot("""sed -i 's/MODULES=/MODULES=radeon /' /etc/mkinitcpio.conf""")
+        chroot("""sed -i 's/MODULES="/MODULES="radeon /' /etc/mkinitcpio.conf""")
     if gpu == 'intel':
         gpu_packages = ['lib32-mesa', 'xf86-video-intel']
-        chroot("""sed -i 's/MODULES=/MODULES=i915 /' /etc/mkinitcpio.conf""")
+        chroot("""sed -i 's/MODULES="/MODULES="i915 /' /etc/mkinitcpio.conf""")
     if gpu == 'vbox':
         gpu_packages = ['virtualbox-guest-dkms', 'virtualbox-guest-utils']
+        chroot("""sed -i 's/MODULES="/MODULES="vboxvideo /' /etc/mkinitcpio.conf""")
         chroot("echo -e 'vboxguest\nvboxsf\nvboxvideo' > /etc/modules-load.d/virtualbox.conf")
     if gpu == 'vmware':
         gpu_packages = ['open-vm-tools', 'xf86-input-vmmouse', 'xf86-video-vmware']
