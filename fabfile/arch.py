@@ -12,7 +12,7 @@ import sys
 
 from fabric.api import env, hide, put, sudo, task
 
-valid_gpus = [None, 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
+valid_gpus = ['auto', 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
     'apacman', 'avahi', 'bind-tools', 'btrfs-progs', 'cronie', 'dkms',
     'git', 'gptfdisk', 'haveged', 'linux-headers', 'networkmanager', 'nfs-utils', 'nss-mdns',
@@ -100,7 +100,7 @@ def enable_mdns(target):
 
 
 def gpu_detect(gpu):
-    if gpu:
+    if gpu != 'auto':
         return gpu
     lspci = sudo('lspci|grep VGA').lower()
     if 'intel' in lspci:
@@ -444,8 +444,8 @@ def log(message):
 
 @task
 def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
-               ssh_key='~/.ssh/id_rsa.pub', efi=None, gpu=None, extra_packages=None,
-               remote=None, verbose=False):
+               ssh_key='~/.ssh/id_rsa.pub', efi='auto', gpu='auto', extra_packages=None,
+               remote='auto', verbose=False):
     """
     If specified, gpu must be one of: nvidia, nouveau, amd, intel or vbox.
 
@@ -500,14 +500,14 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
         if not device and not mountpoint or device and mountpoint:
             raise RuntimeError("Target is neither a device nor a mount point. Aborting")
 
-        if remote is None:
+        if remote is 'auto':
             # Auto detect if we are remote or not. Copied from facter fact
             remote = True
             if sudo("nslookup abachi.dray.be | grep -o '192.168.1.15'", quiet=True) == '192.168.1.15':
                 if sudo("ip route|grep default|grep -o 192.168.1.1", quiet=True) == '192.168.1.1':
                     remote = False
 
-        if efi is None:
+        if efi is 'auto':
             if sudo('efibootmgr &>/dev/null', quiet=True).succeeded:
                 efi = True
             else:
