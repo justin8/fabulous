@@ -28,16 +28,20 @@ def generate_password(length):
     return "".join(lst)
 
 
-def pacman(packages, pacstrap=False):
+def pacman(packages, pacstrap=False, remote=False):
     """
     Accepts a list of packages to be installed to env.dest via pacman
     in the chroot. Requires a base install to have been completed, but
     caches to disk instead of tmpfs.
     """
+    if remote:
+        remote = ''
+    else:
+        remote = '-c'
     script_name = '/var/tmp/pacman.sh'
     command = 'pacman -Sy --noconfirm --force'
     if pacstrap:
-        command = 'pacstrap -c %s' % env.dest
+        command = 'pacstrap %s %s' % (remote, env.dest)
     script = """#!/bin/bash
 count=0
 while [[ $count -lt 5 ]]
@@ -538,7 +542,7 @@ def install_os(fqdn, target, username=None, password=None, gui=False, kernel='',
                     sys.exit(1)
 
             log('Installing base OS (may take a few minutes)...')
-            pacman(['base'], pacstrap=True)
+            pacman(['base'], pacstrap=True, remote=remote)
 
             if not remote:
                 log('Mounting package cache in chroot...')
