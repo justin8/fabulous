@@ -1,6 +1,5 @@
 # TODO: Add bootup splash screen
 # TODO: Support install without my repo?
-# TODO: Detect laptop and install synaptics in gui=True mode
 from __future__ import print_function
 
 from datetime import datetime
@@ -273,6 +272,14 @@ def gui_install():
 
     log('Installing plymouth...')
     install_plymouth()
+
+    install_laptop_tools()
+
+
+def install_laptop_tools():
+    if chroot('test -d /sys/class/power_supply/BAT*', warn_only=True).return_code == 0:
+        pacman(['xf86-input-synaptics'])
+
 
 
 def install_plymouth():
