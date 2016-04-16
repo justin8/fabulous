@@ -257,7 +257,7 @@ EOF"""
     chroot('pacman-key -r 962DDE58')
     chroot('pacman-key --lsign-key 962DDE58')
     chroot('pacman -Sy')
-    chroot('yes|pacman -Sy freetype2-infinality-ultimate cairo-infinality-ultimate fontconfig-infinality-ultimate ibfonts-meta-extended')
+    chroot('yes|pacman -Sy freetype2-infinality-ultimate cairo-infinality-ultimate fontconfig-infinality-ultimate ibfonts-meta-extended ttf-noto-fonts-emoji-ib')
 
 
 def gui_install():
