@@ -185,7 +185,7 @@ def install_mbr_bootloader(kernel_string, intel):
 
 
 def boot_loader(efi, kernel):
-    intel = not bool(sudo('grep GenuineIntel /proc/cpuinfo', warn_only=True).return_code)
+    intel = not bool(sudo('grep GenuineIntel /proc/cpuinfo', warn_only=True, quiet=True).return_code)
     kernel_string = 'linux'
 
     if intel:
