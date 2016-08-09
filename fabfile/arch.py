@@ -15,8 +15,8 @@ valid_gpus = ['auto', 'nvidia', 'nouveau', 'amd', 'intel', 'vbox', 'vmware']
 base_packages = [
     'avahi', 'bind-tools', 'btrfs-progs', 'cronie', 'dkms',
     'git', 'gptfdisk', 'haveged', 'linux-headers', 'networkmanager', 'nfs-utils', 'nss-mdns',
-    'ntp', 'pkgfile', 'pkgstats', 'openssh', 'rsync', 'sudo', 'tzupdate', 'vim', 'zsh']
-base_services = ['avahi-daemon', 'cronie', 'haveged', 'NetworkManager', 'nscd', 'ntpd', 'pacaur', 'sshd']
+    'ntp', 'pacaur', 'pkgfile', 'pkgstats', 'openssh', 'rsync', 'sudo', 'tzupdate', 'vim', 'zsh']
+base_services = ['avahi-daemon', 'cronie', 'haveged', 'NetworkManager', 'nscd', 'ntpd', 'sshd']
 gui_packages = [
     'aspell-en', 'file-roller', 'gdm-plymouth', 'gnome', 'gnome-packagekit', 'gnome-tweak-tool', 'gst-libav', 'gst-plugins-ugly', 'terminator']
 gui_services = ['gdm']
