@@ -75,7 +75,7 @@ def chroot(command, warn_only=False, quiet=False, user=None):
 {1} {2}
 CHROOTEOF
 """.format(env.dest, sudo_cmd, command))
-    return sudo("""arch-chroot {0} bash -c 'bash /var/tmp/chroot-cmd && rm /var/tmp/chroot-cmd'""".format(env.dest, command), quiet=quiet)
+    return sudo("""arch-chroot {0} bash -c 'bash /var/tmp/chroot-cmd && rm /var/tmp/chroot-cmd'""".format(env.dest, command), quiet=quiet, warn_only=warn_only)
 
 
 def enable_multilib_repo(target):
